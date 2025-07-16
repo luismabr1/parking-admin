@@ -42,8 +42,8 @@ export default function QRGenerator() {
     try {
       setGeneratingQR(ticketCode)
 
-      // Generar la URL que apuntará a la página de pago
-      const baseUrl = window.location.origin
+      // Usar variable de entorno NEXT_PUBLIC_TICKET_URL o window.location.origin como fallback
+      const baseUrl = process.env.NEXT_PUBLIC_TICKET_URL || window.location.origin
       const ticketUrl = `${baseUrl}/ticket/${ticketCode}`
 
       // Generar el código QR

@@ -1,40 +1,40 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { RefreshCw, ChevronDown, ChevronUp, Smartphone } from "lucide-react"
-import PendingPayments from "../../components/admin/pending-payments"
-import StaffManagement from "../../components/admin/staff-management"
-import CompanySettings from "../../components/admin/company-settings"
-import TicketManagement from "../../components/admin/ticket-management"
-import CarRegistration from "../../components/admin/car-registration"
-import CarHistory from "../../components/admin/car-history"
-import VehicleExit from "../../components/admin/vehicle-exit"
-import QRGenerator from "../../components/admin/qr-generator"
-import ParkingConfirmation from "../../components/admin/parking-confirmation"
-import { Badge } from "@/components/ui/badge"
-import { useMobileDetection } from "@/hooks/use-mobile-detection"
-import React from "react"
-import NotificationSettings from "@/components/notification/notification-settings"
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, ChevronDown, ChevronUp, Smartphone } from "lucide-react";
+import PendingPayments from "../../components/admin/pending-payments";
+import StaffManagement from "../../components/admin/staff-management";
+import CompanySettings from "../../components/admin/company-settings";
+import TicketManagement from "../../components/admin/ticket-management";
+import CarRegistration from "../../components/admin/car-registration";
+import CarHistory from "../../components/admin/car-history";
+import VehicleExit from "../../components/admin/vehicle-exit";
+import QRGenerator from "../../components/admin/qr-generator";
+import ParkingConfirmation from "../../components/admin/parking-confirmation";
+import { Badge } from "@/components/ui/badge";
+import { useMobileDetection } from "@/hooks/use-mobile-detection";
+import React from "react";
+import NotificationSettings from "@/components/notification/notification-settings";
 
 interface DashboardStats {
-  pendingPayments: number
-  totalStaff: number
-  todayPayments: number
-  totalTickets: number
-  availableTickets: number
-  carsParked: number
-  paidTickets: number
-  pendingConfirmations: number
+  pendingPayments: number;
+  totalStaff: number;
+  todayPayments: number;
+  totalTickets: number;
+  availableTickets: number;
+  carsParked: number;
+  paidTickets: number;
+  pendingConfirmations: number;
 }
 
 const areStatsEqual = (newStats: DashboardStats, oldStats: DashboardStats) => {
   return Object.keys(newStats).every(
     (key) => newStats[key as keyof DashboardStats] === oldStats[key as keyof DashboardStats],
-  )
-}
+  );
+};
 
 function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
@@ -46,19 +46,20 @@ function AdminDashboard() {
     carsParked: 0,
     paidTickets: 0,
     pendingConfirmations: 0,
-  })
-  const [isLoadingStats, setIsLoadingStats] = useState(true)
-  const [showStats, setShowStats] = useState(false)
-  const isMobile = useMobileDetection()
-  const [activeTab, setActiveTab] = useState(isMobile ? "cars" : "cars") // Change default to "cars"
-  const prevStatsRef = useRef(stats)
-  const prevMobileRef = useRef(isMobile)
-  const renderCountRef = useRef(0)
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [showStats, setShowStats] = useState(false);
+  const isMobile = useMobileDetection();
+  const [activeTab, setActiveTab] = useState("cars");
+  const prevStatsRef = useRef(stats);
+  const prevMobileRef = useRef(isMobile);
+  const renderCountRef = useRef(0);
 
   // Log renders
-  renderCountRef.current += 1
+  renderCountRef.current += 1;
   if (process.env.NODE_ENV === "development") {
-    console.log(`🔍 DEBUG: Renderizando AdminDashboard #${renderCountRef.current}`)
+    console.log(`🔍 DEBUG: Renderizando AdminDashboard #${renderCountRef.current}`);
+    console.log(`🔍 DEBUG: activeTab actual: ${activeTab}`);
   }
 
   // Log state changes
@@ -66,23 +67,23 @@ function AdminDashboard() {
     if (process.env.NODE_ENV === "development") {
       console.log(
         `🔍 DEBUG: Estado actualizado en AdminDashboard - activeTab: ${activeTab}, showStats: ${showStats}, isLoadingStats: ${isLoadingStats}, stats.pendingPayments: ${stats.pendingPayments}`,
-      )
+      );
     }
-  }, [activeTab, showStats, isLoadingStats, stats])
+  }, [activeTab, showStats, isLoadingStats, stats]);
 
   // Log isMobile changes
   useEffect(() => {
     if (process.env.NODE_ENV === "development") {
-      console.log(`🔍 DEBUG: isMobile cambió: ${isMobile}`)
+      console.log(`🔍 DEBUG: isMobile cambió: ${isMobile}`);
     }
-  }, [isMobile])
+  }, [isMobile]);
 
   const fetchStats = useCallback(async () => {
     try {
       if (process.env.NODE_ENV === "development") {
-        console.log("🔍 DEBUG: Iniciando fetchStats")
+        console.log("🔍 DEBUG: Iniciando fetchStats");
       }
-      const timestamp = new Date().getTime()
+      const timestamp = new Date().getTime();
       const response = await fetch(`/api/admin/stats?t=${timestamp}`, {
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -90,63 +91,68 @@ function AdminDashboard() {
           Expires: "0",
         },
         next: { revalidate: 0 },
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        setIsLoadingStats(false)
+        const data = await response.json();
+        setIsLoadingStats(false);
         if (!areStatsEqual(data, prevStatsRef.current)) {
-          setStats(data)
-          prevStatsRef.current = data
+          setStats(data);
+          prevStatsRef.current = data;
           if (process.env.NODE_ENV === "development") {
-            console.log("🔍 DEBUG: Stats actualizadas", data)
+            console.log("🔍 DEBUG: Stats actualizadas", data);
           }
         } else {
           if (process.env.NODE_ENV === "development") {
-            console.log("🔍 DEBUG: Omitiendo actualización de stats, datos idénticos")
+            console.log("🔍 DEBUG: Omitiendo actualización de stats, datos idénticos");
           }
         }
       } else {
-        throw new Error("Error fetching stats")
+        throw new Error("Error fetching stats");
       }
     } catch (error) {
-      console.error("Error fetching stats:", error)
-      setIsLoadingStats(false)
+      console.error("Error fetching stats:", error);
+      setIsLoadingStats(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchStats()
-    const interval = setInterval(fetchStats, 30000)
-    return () => clearInterval(interval)
-  }, [fetchStats])
+    fetchStats();
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStats]);
 
-  // Synchronize activeTab with isMobile, only if isMobile changes
+  const handleTabChange = (value: string) => {
+    if (process.env.NODE_ENV === "development") {
+      console.log(`🔍 DEBUG: Cambiando tab de ${activeTab} a ${value}`);
+    }
+    setActiveTab(value);
+  };
+
   useEffect(() => {
     if (prevMobileRef.current !== isMobile) {
-      setActiveTab(isMobile ? "cars" : "cars")
+      setActiveTab("cars");
       if (process.env.NODE_ENV === "development") {
-        console.log(`🔍 DEBUG: Actualizando activeTab a ${isMobile ? "cars" : "cars"} por cambio en isMobile`)
+        console.log(`🔍 DEBUG: Actualizando activeTab a cars por cambio en isMobile`);
       }
-      prevMobileRef.current = isMobile
+      prevMobileRef.current = isMobile;
     }
-  }, [isMobile])
+  }, [isMobile]);
 
-  // Render mobile view
   if (isMobile) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Panel Admin</h1>
-            <p className="text-sm text-gray-600">Gestión de estacionamiento</p>
+            <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Panel Admin</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Gestión de estacionamiento</p>
           </div>
           <Button onClick={fetchStats} variant="outline" size="sm" disabled={isLoadingStats}>
             <RefreshCw className={`h-4 w-4 ${isLoadingStats ? "animate-spin" : ""}`} />
           </Button>
         </div>
 
-        <Card className="border border-gray-200">
+        <Card className="border border-gray-200 dark:border-gray-700">
           <CardHeader className="py-2 px-4 cursor-pointer" onClick={() => setShowStats(!showStats)}>
             <div className="flex justify-between items-center">
               <CardTitle className="text-sm font-medium">
@@ -170,21 +176,21 @@ function AdminDashboard() {
           {showStats && (
             <CardContent className="py-2 px-4">
               <div className="grid grid-cols-2 gap-2">
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <span className="text-xs">Espacios libres:</span>
                   <Badge variant="outline">{stats.availableTickets}</Badge>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <span className="text-xs">Estacionados:</span>
                   <Badge variant="secondary">{stats.carsParked}</Badge>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <span className="text-xs">Confirmaciones:</span>
                   <Badge variant={stats.pendingConfirmations > 0 ? "destructive" : "outline"}>
                     {stats.pendingConfirmations}
                   </Badge>
                 </div>
-                <div className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <span className="text-xs">Pagos pendientes:</span>
                   <Badge variant={stats.pendingPayments > 0 ? "destructive" : "outline"}>{stats.pendingPayments}</Badge>
                 </div>
@@ -193,44 +199,56 @@ function AdminDashboard() {
           )}
         </Card>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-4 h-auto">
-            <TabsTrigger value="cars" className="py-2 text-xs">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+          <TabsList className="flex h-auto space-x-1">
+            <TabsTrigger
+              value="cars"
+              className="py-2 text-xs relative data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary"
+            >
               <Smartphone className="h-3 w-3 mr-1" />
               Registro
             </TabsTrigger>
-            <TabsTrigger value="confirmations" className="py-2 text-xs">
+            <TabsTrigger
+              value="confirmations"
+              className="py-2 text-xs relative data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary"
+            >
+              Confirmar
               {stats.pendingConfirmations > 0 && (
                 <Badge
                   variant="destructive"
-                  className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs font-bold min-w-[16px] rounded-full"
                 >
                   {stats.pendingConfirmations}
                 </Badge>
               )}
-              Confirmar
             </TabsTrigger>
-            <TabsTrigger value="payments" className="py-2 text-xs">
+            <TabsTrigger
+              value="payments"
+              className="py-2 text-xs relative data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary"
+            >
+              Pagos
               {stats.pendingPayments > 0 && (
                 <Badge
                   variant="destructive"
-                  className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs font-bold min-w-[16px] rounded-full"
                 >
                   {stats.pendingPayments}
                 </Badge>
               )}
-              Pagos
             </TabsTrigger>
-            <TabsTrigger value="exit" className="py-2 text-xs">
+            <TabsTrigger
+              value="exit"
+              className="py-2 text-xs relative data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary"
+            >
+              Salida
               {stats.paidTickets > 0 && (
                 <Badge
                   variant="default"
-                  className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs font-bold min-w-[16px] rounded-full"
                 >
                   {stats.paidTickets}
                 </Badge>
               )}
-              Salida
             </TabsTrigger>
           </TabsList>
 
@@ -253,16 +271,15 @@ function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
-  // Desktop view
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Panel de Administración</h1>
-          <p className="text-lg text-gray-600">Gestión completa del sistema de estacionamiento</p>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Panel de Administración</h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300">Gestión completa del sistema de estacionamiento</p>
         </div>
         <Button onClick={fetchStats} variant="outline" disabled={isLoadingStats}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingStats ? "animate-spin" : ""}`} />
@@ -359,9 +376,12 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-10">
-          <TabsTrigger value="confirmations">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-10 bg-muted/20 p-1 rounded-lg">
+          <TabsTrigger
+            value="confirmations"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
             Confirmar
             {stats.pendingConfirmations > 0 && (
               <Badge variant="destructive" className="ml-2 text-xs">
@@ -369,7 +389,10 @@ function AdminDashboard() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="payments">
+          <TabsTrigger
+            value="payments"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
             Pagos
             {stats.pendingPayments > 0 && (
               <Badge variant="destructive" className="ml-2 text-xs">
@@ -377,17 +400,55 @@ function AdminDashboard() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="tickets">Espacios</TabsTrigger>
-          <TabsTrigger value="cars">Ingreso</TabsTrigger>
-          <TabsTrigger value="exit">
+          <TabsTrigger
+            value="tickets"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
+            Espacios
+          </TabsTrigger>
+          <TabsTrigger
+            value="cars"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
+            Ingreso
+          </TabsTrigger>
+          <TabsTrigger
+            value="exit"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
             Salida
             {stats.paidTickets > 0 && <Badge className="ml-2 text-xs">{stats.paidTickets}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="qr">QR</TabsTrigger>
-          <TabsTrigger value="history">Historial</TabsTrigger>
-          <TabsTrigger value="staff">Personal</TabsTrigger>
-          <TabsTrigger value="settings">Config</TabsTrigger>
-          <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
+          <TabsTrigger
+            value="qr"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
+            QR
+          </TabsTrigger>
+          <TabsTrigger
+            value="history"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
+            Historial
+          </TabsTrigger>
+          <TabsTrigger
+            value="staff"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
+            Personal
+          </TabsTrigger>
+          <TabsTrigger
+            value="settings"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
+            Config
+          </TabsTrigger>
+          <TabsTrigger
+            value="notifications"
+            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
+          >
+            Notificaciones
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="confirmations">
@@ -422,7 +483,7 @@ function AdminDashboard() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
 
-export default React.memo(AdminDashboard)
+export default React.memo(AdminDashboard);

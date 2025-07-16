@@ -5,7 +5,7 @@ export const APP_CONFIG = {
     // Puedes cambiar esta ruta por tu logo personalizado
     // Formatos soportados: SVG, PNG, JPG
     // Recomendado: SVG para mejor escalabilidad
-    src: "/logo.png", // Cambia esta ruta por tu logo
+    src: process.env.NEXT_PUBLIC_LOGO_URL || "/logo.png", // Usar variable de entorno
     alt: "Parking PWA Logo",
     fallbackText: "P", // Texto que se muestra si no hay logo
   },
@@ -33,6 +33,11 @@ export function generateDefaultLogoSVG(text = "P", size = 100): string {
 
 // Función para obtener el logo con fallback
 export function getLogoSrc(): string {
+  // Si hay variable de entorno, usarla
+  if (process.env.NEXT_PUBLIC_LOGO_URL) {
+    return process.env.NEXT_PUBLIC_LOGO_URL
+  }
+
   // Si existe un logo personalizado, usarlo
   if (APP_CONFIG.logo.src !== "/logo.png") {
     return APP_CONFIG.logo.src

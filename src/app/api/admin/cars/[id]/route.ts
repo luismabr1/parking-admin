@@ -5,7 +5,7 @@ import { ObjectId } from "mongodb"
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const { placa, marca, modelo, color, nombreDueño, telefono, plateImageUrl, vehicleImageUrl } = body
+    const { placa, marca, modelo, color, nombreDueño, telefono, plateImageUrl, vehicleImageUrl, nota } = body
 
     console.log("🔄 Actualizando carro:", params.id, body)
 
@@ -24,6 +24,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     if (color !== undefined) updateData.color = color
     if (nombreDueño !== undefined) updateData.nombreDueño = nombreDueño
     if (telefono !== undefined) updateData.telefono = telefono
+    if (nota !== undefined) updateData.nota = nota
 
     // Actualizar imágenes si se proporcionan
     if (plateImageUrl || vehicleImageUrl) {
@@ -36,10 +37,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
       if (plateImageUrl) {
         imagenesActualizadas.plateImageUrl = plateImageUrl
+        imagenesActualizadas.capturaMetodo = "camara_movil"
       }
 
       if (vehicleImageUrl) {
         imagenesActualizadas.vehicleImageUrl = vehicleImageUrl
+        imagenesActualizadas.capturaMetodo = "camara_movil"
       }
 
       updateData.imagenes = imagenesActualizadas
