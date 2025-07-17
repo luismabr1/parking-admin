@@ -82,7 +82,6 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <div className="min-h-screen bg-background">{children}</div>
           <Toaster />
-          <NotificationPrompt />
           <PWAInstallPrompt />
         </ThemeProvider>
 
