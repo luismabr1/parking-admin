@@ -1,10 +1,26 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ChevronDown, ChevronUp, Smartphone } from "lucide-react";
+import {
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  Smartphone,
+  MoreHorizontal,
+} from "lucide-react";
 import PendingPayments from "../../components/admin/pending-payments";
 import StaffManagement from "../../components/admin/staff-management";
 import CompanySettings from "../../components/admin/company-settings";
@@ -16,8 +32,14 @@ import QRGenerator from "../../components/admin/qr-generator";
 import ParkingConfirmation from "../../components/admin/parking-confirmation";
 import { Badge } from "@/components/ui/badge";
 import { useMobileDetection } from "@/hooks/use-mobile-detection";
-import React from "react";
+import React, { useMemo } from "react";
 import NotificationSettings from "@/components/notification/notification-settings";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface DashboardStats {
   pendingPayments: number;
@@ -51,6 +73,7 @@ function AdminDashboard() {
   const [showStats, setShowStats] = useState(false);
   const isMobile = useMobileDetection();
   const [activeTab, setActiveTab] = useState("cars");
+  const [visibleTabs, setVisibleTabs] = useState<string[]>([]);
   const prevStatsRef = useRef(stats);
   const prevMobileRef = useRef(isMobile);
   const renderCountRef = useRef(0);
@@ -139,6 +162,51 @@ function AdminDashboard() {
     }
   }, [isMobile]);
 
+  // Actualizar visibleTabs solo en el cliente
+  useEffect(() => {
+    const allTabs = [
+      "confirmations",
+      "payments",
+      "tickets",
+      "cars",
+      "exit",
+      "qr",
+      "history",
+      "staff",
+      "settings",
+      "notifications",
+    ];
+    const updateVisibleTabs = () => {
+      if (isMobile || window.innerWidth < 640) {
+        setVisibleTabs(["cars", "confirmations", "payments", "exit"]);
+      } else {
+        const width = window.innerWidth;
+        let maxTabs = width >= 1000 ? 8 : 4;
+        setVisibleTabs(allTabs.slice(0, maxTabs));
+      }
+    };
+
+    updateVisibleTabs();
+    window.addEventListener("resize", updateVisibleTabs);
+    return () => window.removeEventListener("resize", updateVisibleTabs);
+  }, [isMobile]);
+
+  const hiddenTabs = useMemo(() => {
+    const allTabs = [
+      "confirmations",
+      "payments",
+      "tickets",
+      "cars",
+      "exit",
+      "qr",
+      "history",
+      "staff",
+      "settings",
+      "notifications",
+    ];
+    return allTabs.filter((tab) => !visibleTabs.includes(tab));
+  }, [visibleTabs]);
+
   if (isMobile) {
     return (
       <div className="space-y-4">
@@ -175,23 +243,23 @@ function AdminDashboard() {
           </CardHeader>
           {showStats && (
             <CardContent className="py-2 px-4">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                  <span className="text-xs">Espacios libres:</span>
+                  <span>Espacios libres:</span>
                   <Badge variant="outline">{stats.availableTickets}</Badge>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                  <span className="text-xs">Estacionados:</span>
+                  <span>Estacionados:</span>
                   <Badge variant="secondary">{stats.carsParked}</Badge>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                  <span className="text-xs">Confirmaciones:</span>
+                  <span>Confirmaciones:</span>
                   <Badge variant={stats.pendingConfirmations > 0 ? "destructive" : "outline"}>
                     {stats.pendingConfirmations}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                  <span className="text-xs">Pagos pendientes:</span>
+                  <span>Pagos pendientes:</span>
                   <Badge variant={stats.pendingPayments > 0 ? "destructive" : "outline"}>{stats.pendingPayments}</Badge>
                 </div>
               </div>
@@ -200,17 +268,16 @@ function AdminDashboard() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-          <TabsList className="flex h-auto space-x-1">
+          <TabsList className="flex flex-row w-full justify-between gap-1">
             <TabsTrigger
               value="cars"
-              className="py-2 text-xs relative data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary"
+              className="py-2 px-4 text-sm relative flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary text-center"
             >
-              <Smartphone className="h-3 w-3 mr-1" />
-              Registro
+              <Smartphone className="h-3 w-3 mr-1" /> Registro
             </TabsTrigger>
             <TabsTrigger
               value="confirmations"
-              className="py-2 text-xs relative data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary"
+              className="py-2 px-4 text-sm relative flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary text-center"
             >
               Confirmar
               {stats.pendingConfirmations > 0 && (
@@ -224,7 +291,7 @@ function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="payments"
-              className="py-2 text-xs relative data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary"
+              className="py-2 px-4 text-sm relative flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary text-center"
             >
               Pagos
               {stats.pendingPayments > 0 && (
@@ -238,7 +305,7 @@ function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="exit"
-              className="py-2 text-xs relative data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary"
+              className="py-2 px-4 text-sm relative flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary text-center"
             >
               Salida
               {stats.paidTickets > 0 && (
@@ -250,6 +317,38 @@ function AdminDashboard() {
                 </Badge>
               )}
             </TabsTrigger>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="py-2 px-4 text-sm flex-1 h-auto data-[state=open]:bg-primary data-[state=open]:text-primary-foreground text-center"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                  Más
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleTabChange("tickets")} className="cursor-pointer">
+                  Espacios
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTabChange("qr")} className="cursor-pointer">
+                  QR
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTabChange("history")} className="cursor-pointer">
+                  Historial
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTabChange("staff")} className="cursor-pointer">
+                  Personal
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTabChange("settings")} className="cursor-pointer">
+                  Config
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleTabChange("notifications")} className="cursor-pointer">
+                  Notificaciones
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </TabsList>
 
           <TabsContent value="cars" className="m-0">
@@ -264,8 +363,26 @@ function AdminDashboard() {
           <TabsContent value="exit" className="m-0">
             <VehicleExit />
           </TabsContent>
+          <TabsContent value="tickets" className="m-0">
+            <TicketManagement />
+          </TabsContent>
+          <TabsContent value="qr" className="m-0">
+            <QRGenerator />
+          </TabsContent>
+          <TabsContent value="history" className="m-0">
+            <CarHistory />
+          </TabsContent>
+          <TabsContent value="staff" className="m-0">
+            <StaffManagement onStatsUpdate={fetchStats} />
+          </TabsContent>
+          <TabsContent value="settings" className="m-0">
+            <CompanySettings />
+          </TabsContent>
+          <TabsContent value="notifications" className="m-0">
+            <NotificationSettings userType="admin" />
+          </TabsContent>
         </Tabs>
-        <Card>
+        <Card className="mt-6">
           <CardContent>
             <NotificationSettings userType="admin" />
           </CardContent>
@@ -275,7 +392,7 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Panel de Administración</h1>
@@ -287,168 +404,176 @@ function AdminDashboard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
             <CardTitle className="text-sm font-medium">Pagos Pendientes</CardTitle>
             <Badge variant={stats.pendingPayments > 0 ? "destructive" : "secondary"}>{stats.pendingPayments}</Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="text-2xl font-bold">{stats.pendingPayments}</div>
             <p className="text-xs text-muted-foreground">
               {stats.pendingPayments === 0 ? "Todos procesados" : "Requieren validación"}
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
             <CardTitle className="text-sm font-medium">Confirmaciones</CardTitle>
             <Badge variant={stats.pendingConfirmations > 0 ? "destructive" : "secondary"}>
               {stats.pendingConfirmations}
             </Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="text-2xl font-bold">{stats.pendingConfirmations}</div>
             <p className="text-xs text-muted-foreground">
               {stats.pendingConfirmations === 0 ? "Todos confirmados" : "Pendientes"}
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
             <CardTitle className="text-sm font-medium">Personal Activo</CardTitle>
             <Badge variant="secondary">{stats.totalStaff}</Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="text-2xl font-bold">{stats.totalStaff}</div>
             <p className="text-xs text-muted-foreground">Usuarios registrados</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
             <CardTitle className="text-sm font-medium">Pagos Hoy</CardTitle>
             <Badge>{stats.todayPayments}</Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="text-2xl font-bold">{stats.todayPayments}</div>
             <p className="text-xs text-muted-foreground">Procesados hoy</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
             <CardTitle className="text-sm font-medium">Total Espacios</CardTitle>
             <Badge variant="outline">{stats.totalTickets}</Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="text-2xl font-bold">{stats.totalTickets}</div>
             <p className="text-xs text-muted-foreground">Espacios totales</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
             <CardTitle className="text-sm font-medium">Espacios Libres</CardTitle>
             <Badge variant="secondary">{stats.availableTickets}</Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="text-2xl font-bold">{stats.availableTickets}</div>
             <p className="text-xs text-muted-foreground">Disponibles</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
             <CardTitle className="text-sm font-medium">Carros Estacionados</CardTitle>
             <Badge variant="destructive">{stats.carsParked}</Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="text-2xl font-bold">{stats.carsParked}</div>
             <p className="text-xs text-muted-foreground">Actualmente</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
             <CardTitle className="text-sm font-medium">Listos para Salir</CardTitle>
             <Badge variant={stats.paidTickets > 0 ? "default" : "secondary"}>{stats.paidTickets}</Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="text-2xl font-bold">{stats.paidTickets}</div>
             <p className="text-xs text-muted-foreground">Pagados</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-10 bg-muted/20 p-1 rounded-lg">
-          <TabsTrigger
-            value="confirmations"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Confirmar
-            {stats.pendingConfirmations > 0 && (
-              <Badge variant="destructive" className="ml-2 text-xs">
-                {stats.pendingConfirmations}
-              </Badge>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 mb-6">
+        <TabsList className="grid grid-cols-1 gap-1 bg-muted/20 p-1 rounded-lg">
+          <div className="flex flex-row w-full justify-start gap-1">
+            {visibleTabs.map((tab) => (
+              <TabsTrigger
+                key={tab}
+                value={tab}
+                className="py-2 px-4 text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out flex-1 text-center"
+              >
+                {tab === "confirmations" && (
+                  <>
+                    Confirmar
+                    {stats.pendingConfirmations > 0 && (
+                      <Badge variant="destructive" className="ml-1 text-xs">
+                        {stats.pendingConfirmations}
+                      </Badge>
+                    )}
+                  </>
+                )}
+                {tab === "payments" && (
+                  <>
+                    Pagos
+                    {stats.pendingPayments > 0 && (
+                      <Badge variant="destructive" className="ml-1 text-xs">
+                        {stats.pendingPayments}
+                      </Badge>
+                    )}
+                  </>
+                )}
+                {tab === "tickets" && "Espacios"}
+                {tab === "cars" && (
+                  <>
+                    <Smartphone className="h-3 w-3 mr-1" /> Registro
+                  </>
+                )}
+                {tab === "exit" && (
+                  <>
+                    Salida
+                    {stats.paidTickets > 0 && (
+                      <Badge className="ml-1 text-xs">{stats.paidTickets}</Badge>
+                    )}
+                  </>
+                )}
+                {tab === "qr" && "QR"}
+                {tab === "history" && "Historial"}
+                {tab === "staff" && "Personal"}
+                {tab === "settings" && "Config"}
+                {tab === "notifications" && "Notificaciones"}
+              </TabsTrigger>
+            ))}
+            {hiddenTabs.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="py-2 px-4 text-sm flex-1 h-auto data-[state=open]:bg-primary data-[state=open]:text-primary-foreground text-center"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    Más
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {hiddenTabs.map((tab) => (
+                    <DropdownMenuItem
+                      key={tab}
+                      onClick={() => handleTabChange(tab)}
+                      className="cursor-pointer"
+                    >
+                      {tab === "tickets" && "Espacios"}
+                      {tab === "qr" && "QR"}
+                      {tab === "history" && "Historial"}
+                      {tab === "staff" && "Personal"}
+                      {tab === "settings" && "Config"}
+                      {tab === "notifications" && "Notificaciones"}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="payments"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Pagos
-            {stats.pendingPayments > 0 && (
-              <Badge variant="destructive" className="ml-2 text-xs">
-                {stats.pendingPayments}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="tickets"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Espacios
-          </TabsTrigger>
-          <TabsTrigger
-            value="cars"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Ingreso
-          </TabsTrigger>
-          <TabsTrigger
-            value="exit"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Salida
-            {stats.paidTickets > 0 && <Badge className="ml-2 text-xs">{stats.paidTickets}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger
-            value="qr"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            QR
-          </TabsTrigger>
-          <TabsTrigger
-            value="history"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Historial
-          </TabsTrigger>
-          <TabsTrigger
-            value="staff"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Personal
-          </TabsTrigger>
-          <TabsTrigger
-            value="settings"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Config
-          </TabsTrigger>
-          <TabsTrigger
-            value="notifications"
-            className="font-medium text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out"
-          >
-            Notificaciones
-          </TabsTrigger>
+          </div>
         </TabsList>
 
         <TabsContent value="confirmations">
@@ -482,6 +607,11 @@ function AdminDashboard() {
           <NotificationSettings userType="admin" />
         </TabsContent>
       </Tabs>
+      <Card className="mt-6">
+        <CardContent>
+          <NotificationSettings userType="admin" />
+        </CardContent>
+      </Card>
     </div>
   );
 }
