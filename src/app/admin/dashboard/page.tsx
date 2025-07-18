@@ -33,7 +33,7 @@ function DashboardSkeleton() {
 export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto max-w-7xl">
+      <div className="container mx-auto max-w-9xl">
         <Suspense fallback={<DashboardSkeleton />}>
           <AdminDashboard />
         </Suspense>
