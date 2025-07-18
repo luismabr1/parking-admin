@@ -183,24 +183,18 @@ export async function POST(request: Request) {
           fechaSalida: now,
           fechaUltimaActualizacion: now,
           duracionTotalMinutos: duracionMinutos,
-
-          // Preserve all final data
           datosFinales: {
             horaSalida: now,
             duracionMinutos: duracionMinutos,
             montoTotalPagado: pago?.montoPagado || 0,
             estadoFinal: "completado_exitosamente",
           },
-
-          // Complete ticket data
           ticketDataFinal: {
             ...ticket,
             horaSalida: now,
             duracionMinutos: duracionMinutos,
             estadoFinal: "salido",
           },
-
-          // Complete payment data if exists
           ...(pago && {
             pagoDataFinal: {
               ...pago,
@@ -239,9 +233,15 @@ export async function POST(request: Request) {
           estado: "disponible",
           horaOcupacion: null,
           horaSalida: null,
+          montoCalculado: 0,
           ultimoPagoId: null,
         },
         $unset: {
+          carInfo: "",
+          duracionMinutos: "",
+          fechaConfirmacion: "",
+          fechaValidacionPago: "",
+          updatedAt: "",
           tipoPago: "",
           tiempoSalida: "",
           tiempoSalidaEstimado: "",
@@ -277,7 +277,6 @@ export async function POST(request: Request) {
       }
     } catch (subscriptionError) {
       console.error("❌ [VEHICLE-EXIT] Error desactivando suscripciones:", subscriptionError)
-      // Don't fail the exit if subscription cleanup fails
     }
 
     // Send final notifications to both user and admin about vehicle delivery
@@ -286,7 +285,6 @@ export async function POST(request: Request) {
         console.log("🔔 [VEHICLE-EXIT] Enviando notificaciones finales de entrega...")
       }
 
-      // Notification to user
       const userNotificationResponse = await fetch(
         `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/send-notification`,
         {
@@ -307,7 +305,6 @@ export async function POST(request: Request) {
         },
       )
 
-      // Notification to admin
       const adminNotificationResponse = await fetch(
         `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/send-notification`,
         {
@@ -340,7 +337,6 @@ export async function POST(request: Request) {
       }
     } catch (notificationError) {
       console.error("❌ [VEHICLE-EXIT] Error sending final notifications:", notificationError)
-      // Don't fail the exit if notification fails
     }
 
     const processingTime = Date.now() - startTime
