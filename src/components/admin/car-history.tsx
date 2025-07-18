@@ -65,7 +65,7 @@ interface DetailedHistory {
     pagoId: string
     fecha: string
     fechaValidacion?: string
-    monto: number
+    montoPagado: number
     montoUsd: number
     tipoPago: string
     estado: string
@@ -107,6 +107,13 @@ interface Pagination {
   pages: number
 }
 
+interface FinancialSummary {
+  totalPagado: number
+  totalRechazado: number
+  totalPendiente: number
+  totalRegistros: number
+}
+
 export default function CarHistory() {
   const [history, setHistory] = useState<CarHistoryItem[]>([])
   const [detailedHistory, setDetailedHistory] = useState<DetailedHistory | null>(null)
@@ -117,6 +124,12 @@ export default function CarHistory() {
     total: 0,
     pages: 0,
   })
+  const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
+    totalPagado: 0,
+    totalRechazado: 0,
+    totalPendiente: 0,
+    totalRegistros: 0,
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingDetailed, setIsLoadingDetailed] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -124,6 +137,7 @@ export default function CarHistory() {
 
   useEffect(() => {
     fetchHistory()
+    fetchFinancialSummary()
   }, [pagination.page, searchTerm])
 
   const fetchHistory = async () => {
@@ -145,6 +159,7 @@ export default function CarHistory() {
 
       if (response.ok) {
         const data = await response.json()
+        console.log("🔍 DEBUG: FetchHistory response:", data)
         setHistory(data.history)
         setPagination(data.pagination)
       }
@@ -173,6 +188,7 @@ export default function CarHistory() {
 
       if (response.ok) {
         const data = await response.json()
+        console.log("🔍 DEBUG: FetchDetailedHistory response:", data)
         setDetailedHistory(data)
         setShowDetailed(true)
       } else {
@@ -187,6 +203,28 @@ export default function CarHistory() {
     }
   }
 
+  const fetchFinancialSummary = async () => {
+    try {
+      const response = await fetch("/api/admin/car-history/summary", {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("🔍 DEBUG: FetchFinancialSummary response:", data)
+        setFinancialSummary(data.summary)
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error fetching financial summary:", error)
+      }
+    }
+  }
+
   const handleSearch = () => {
     setSearchTerm(searchInput)
     setPagination((prev) => ({ ...prev, page: 1 }))
@@ -198,19 +236,15 @@ export default function CarHistory() {
 
   const exportToCSV = (data: DetailedHistory) => {
     const csvContent = [
-      // Header
       "Fecha,Tipo,Estado,Detalles",
-      // Events
       ...data.eventos.map(
         (evento) =>
           `"${formatDateTime(evento.fecha)}","${evento.tipo}","${evento.estado}","${JSON.stringify(evento.datos || {})}"`,
       ),
-      // Payments
       ...data.pagos.map(
         (pago) =>
-          `"${formatDateTime(pago.fecha)}","Pago Validado","${pago.estado}","Monto: ${pago.monto} Bs, Tipo: ${pago.tipoPago}"`,
+          `"${formatDateTime(pago.fecha)}","Pago Validado","${pago.estado}","Monto: ${pago.montoPagado} Bs, Tipo: ${pago.tipoPago}"`,
       ),
-      // Rejected payments
       ...data.pagosRechazados.map(
         (pago) =>
           `"${formatDateTime(pago.fecha)}","Pago Rechazado","rechazado","Monto: ${pago.monto} Bs, Razón: ${pago.razonRechazo}"`,
@@ -280,7 +314,40 @@ export default function CarHistory() {
     }).format(amount)
   }
 
+  const calculateTotalPaid = (pagos: DetailedHistory["pagos"]) => {
+    const total = pagos?.reduce((total, pago) => total + (pago.montoPagado || 0), 0) || 0
+    console.log("🔍 DEBUG: calculateTotalPaid - Pagos:", pagos, "Total:", total)
+    return total
+  }
+
+  const calculateTotalRejected = (pagosRechazados: DetailedHistory["pagosRechazados"]) => {
+    const total = pagosRechazados?.reduce((total, pago) => total + (pago.monto || 0), 0) || 0
+    console.log("🔍 DEBUG: calculateTotalRejected - Pagos Rechazados:", pagosRechazados, "Total:", total)
+    return total
+  }
+
+  const calculateTotalPending = (montosPendientes: DetailedHistory["montosPendientes"]) => {
+    const total = montosPendientes?.reduce((total, pendiente) => total + (pendiente.monto || 0), 0) || 0
+    console.log("🔍 DEBUG: calculateTotalPending - Montos Pendientes:", montosPendientes, "Total:", total)
+    return total
+  }
+
+  const calculateGrandTotal = (pagos: DetailedHistory["pagos"], pagosRechazados: DetailedHistory["pagosRechazados"], montosPendientes: DetailedHistory["montosPendientes"]) => {
+    const totalPaid = calculateTotalPaid(pagos)
+    const totalRejected = calculateTotalRejected(pagosRechazados)
+    const totalPending = calculateTotalPending(montosPendientes)
+    const grandTotal = totalPaid + totalRejected + totalPending
+    console.log("🔍 DEBUG: calculateGrandTotal - Total Pagado:", totalPaid, "Total Rechazado:", totalRejected, "Total Pendiente:", totalPending, "Gran Total:", grandTotal)
+    return grandTotal
+  }
+
   if (showDetailed && detailedHistory) {
+    const totalPaidAmount = calculateTotalPaid(detailedHistory.pagos)
+    const totalRejectedAmount = calculateTotalRejected(detailedHistory.pagosRechazados)
+    const totalPendingAmount = calculateTotalPending(detailedHistory.montosPendientes)
+    const grandTotalAmount = calculateGrandTotal(detailedHistory.pagos, detailedHistory.pagosRechazados, detailedHistory.montosPendientes)
+    const specificPaidAmount = detailedHistory.datosFinales?.montoTotalPagado || 0
+
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -325,48 +392,6 @@ export default function CarHistory() {
             </div>
           </div>
 
-          {/* Financial Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium">Pagos Validados</span>
-                </div>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(detailedHistory.montoTotalPagado || 0)}
-                </p>
-                <p className="text-xs text-gray-500">{detailedHistory.pagos?.length || 0} pagos</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-medium">Pagos Rechazados</span>
-                </div>
-                <p className="text-2xl font-bold text-red-600">{detailedHistory.pagosRechazados?.length || 0}</p>
-                <p className="text-xs text-gray-500">
-                  {formatCurrency(detailedHistory.pagosRechazados?.reduce((sum, p) => sum + p.monto, 0) || 0)}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                  <span className="text-sm font-medium">Montos Pendientes</span>
-                </div>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {formatCurrency(detailedHistory.montosPendientes?.reduce((sum, p) => sum + p.monto, 0) || 0)}
-                </p>
-                <p className="text-xs text-gray-500">{detailedHistory.montosPendientes?.length || 0} pendientes</p>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Timeline */}
           <div className="space-y-3">
             <h3 className="font-semibold flex items-center">
@@ -400,7 +425,7 @@ export default function CarHistory() {
           </div>
 
           {/* Payments Details */}
-          {(detailedHistory.pagos?.length > 0 || detailedHistory.pagosRechazados?.length > 0) && (
+          {(detailedHistory.pagos?.length > 0 || detailedHistory.pagosRechazados?.length > 0 || detailedHistory.montosPendientes?.length > 0) && (
             <div className="space-y-3">
               <h3 className="font-semibold flex items-center">
                 <CreditCard className="h-4 w-4 mr-2" />
@@ -416,7 +441,7 @@ export default function CarHistory() {
                       <div key={index} className="p-3 border border-green-200 rounded-lg bg-green-50">
                         <div className="flex justify-between items-start">
                           <div>
-                            <p className="font-medium">{formatCurrency(pago.monto)}</p>
+                            <p className="font-medium">{formatCurrency(pago.montoPagado || 0)}</p>
                             <p className="text-sm text-gray-600">
                               {pago.tipoPago} - {formatDateTime(pago.fecha)}
                             </p>
@@ -439,7 +464,7 @@ export default function CarHistory() {
                       <div key={index} className="p-3 border border-red-200 rounded-lg bg-red-50">
                         <div className="flex justify-between items-start">
                           <div>
-                            <p className="font-medium">{formatCurrency(pago.monto)}</p>
+                            <p className="font-medium">{formatCurrency(pago.monto || 0)}</p>
                             <p className="text-sm text-gray-600">
                               {pago.tipoPago} - {formatDateTime(pago.fecha)}
                             </p>
@@ -458,29 +483,36 @@ export default function CarHistory() {
                   </div>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Pending Amounts */}
-          {detailedHistory.montosPendientes?.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="font-semibold flex items-center">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Montos Pendientes
-              </h3>
-              <div className="space-y-2">
-                {detailedHistory.montosPendientes.map((pendiente, index) => (
-                  <div key={index} className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">{formatCurrency(pendiente.monto)}</p>
-                        <p className="text-sm text-gray-600">{pendiente.razon}</p>
-                        <p className="text-xs text-gray-500">{formatDateTime(pendiente.fecha)}</p>
+              {/* Pending Amounts */}
+              {detailedHistory.montosPendientes?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-yellow-600 mb-2">Montos Pendientes</h4>
+                  <div className="space-y-2">
+                    {detailedHistory.montosPendientes.map((pendiente, index) => (
+                      <div key={index} className="p-3 border border-yellow-200 rounded-lg bg-yellow-50">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-medium">{formatCurrency(pendiente.monto || 0)}</p>
+                            <p className="text-sm text-gray-600">{pendiente.razon}</p>
+                            <p className="text-xs text-gray-500">{formatDateTime(pendiente.fecha)}</p>
+                          </div>
+                          <Badge variant="outline">Pendiente</Badge>
+                        </div>
                       </div>
-                      <Badge variant="outline">Pendiente</Badge>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+              )}
+
+              {/* Grand Total */}
+              <div className="p-3 border rounded-lg bg-gray-50 mt-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium">Gran Total</p>
+                    <p className="text-sm text-gray-600">{formatCurrency(grandTotalAmount)}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -507,9 +539,49 @@ export default function CarHistory() {
           <Button onClick={handleSearch} variant="outline">
             <Search className="h-4 w-4" />
           </Button>
-          <Button onClick={fetchHistory} variant="outline">
+          <Button onClick={() => { fetchHistory(); fetchFinancialSummary(); }} variant="outline">
             <RefreshCw className="h-4 w-4" />
           </Button>
+        </div>
+
+        {/* Financial Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium">Pagos Validados</span>
+              </div>
+              <p className="text-2xl font-bold text-green-600">
+                {formatCurrency(financialSummary.totalPagado)}
+              </p>
+              <p className="text-xs text-gray-500">{financialSummary.totalRegistros} registros</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <span className="text-sm font-medium">Pagos Rechazados</span>
+              </div>
+              <p className="text-2xl font-bold text-red-600">
+                {formatCurrency(financialSummary.totalRechazado)}
+              </p>
+              <p className="text-xs text-gray-500">{financialSummary.totalRegistros} registros</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm font-medium">Montos Pendientes</span>
+              </div>
+              <p className="text-2xl font-bold text-yellow-600">
+                {formatCurrency(financialSummary.totalPendiente)}
+              </p>
+              <p className="text-xs text-gray-500">{financialSummary.totalRegistros} registros</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Stats */}
@@ -549,7 +621,7 @@ export default function CarHistory() {
                   <div className="flex items-center space-x-2">
                     {getStatusBadge(item.estado)}
                     <Button
-                      onClick={() => fetchDetailedHistory(item._id)}
+                      onClick={() => fetchDetailedHistory(item._id.toString())}
                       variant="outline"
                       size="sm"
                       disabled={isLoadingDetailed}

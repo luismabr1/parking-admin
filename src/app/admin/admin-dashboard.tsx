@@ -1,168 +1,45 @@
-"use client";
+"use client"
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  Smartphone,
-  MoreHorizontal,
-} from "lucide-react";
-import PendingPayments from "../../components/admin/pending-payments";
-import StaffManagement from "../../components/admin/staff-management";
-import CompanySettings from "../../components/admin/company-settings";
-import TicketManagement from "../../components/admin/ticket-management";
-import CarRegistration from "../../components/admin/car-registration";
-import CarHistory from "../../components/admin/car-history";
-import VehicleExit from "../../components/admin/vehicle-exit";
-import QRGenerator from "../../components/admin/qr-generator";
-import ParkingConfirmation from "../../components/admin/parking-confirmation";
-import { Badge } from "@/components/ui/badge";
-import { useMobileDetection } from "@/hooks/use-mobile-detection";
-import React, { useMemo } from "react";
-import NotificationSettings from "@/components/notification/notification-settings";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-interface DashboardStats {
-  pendingPayments: number;
-  totalStaff: number;
-  todayPayments: number;
-  totalTickets: number;
-  availableTickets: number;
-  carsParked: number;
-  paidTickets: number;
-  pendingConfirmations: number;
-}
-
-const areStatsEqual = (newStats: DashboardStats, oldStats: DashboardStats) => {
-  return Object.keys(newStats).every(
-    (key) => newStats[key as keyof DashboardStats] === oldStats[key as keyof DashboardStats],
-  );
-};
+import { useState, useEffect, useMemo } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { RefreshCw, ChevronDown, ChevronUp, Smartphone, MoreHorizontal, Wifi, WifiOff } from "lucide-react"
+import PendingPayments from "../../components/admin/pending-payments"
+import StaffManagement from "../../components/admin/staff-management"
+import CompanySettings from "../../components/admin/company-settings"
+import TicketManagement from "../../components/admin/ticket-management"
+import CarRegistration from "../../components/admin/car-registration"
+import CarHistory from "../../components/admin/car-history"
+import VehicleExit from "../../components/admin/vehicle-exit"
+import QRGenerator from "../../components/admin/qr-generator"
+import ParkingConfirmation from "../../components/admin/parking-confirmation"
+import { Badge } from "@/components/ui/badge"
+import { useMobileDetection } from "@/hooks/use-mobile-detection"
+import { useRealTimeStats } from "@/hooks/use-real-time-stats"
+import React from "react"
+import NotificationSettings from "@/components/notification/notification-settings"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
-    pendingPayments: 0,
-    totalStaff: 0,
-    todayPayments: 0,
-    totalTickets: 0,
-    availableTickets: 0,
-    carsParked: 0,
-    paidTickets: 0,
-    pendingConfirmations: 0,
-  });
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [showStats, setShowStats] = useState(false);
-  const isMobile = useMobileDetection();
-  const [activeTab, setActiveTab] = useState("cars");
-  const [visibleTabs, setVisibleTabs] = useState<string[]>([]);
-  const prevStatsRef = useRef(stats);
-  const prevMobileRef = useRef(isMobile);
-  const renderCountRef = useRef(0);
-
-  // Log renders
-  renderCountRef.current += 1;
-  if (process.env.NODE_ENV === "development") {
-    console.log(`🔍 DEBUG: Renderizando AdminDashboard #${renderCountRef.current}`);
-    console.log(`🔍 DEBUG: activeTab actual: ${activeTab}`);
-  }
-
-  // Log state changes
-  useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      console.log(
-        `🔍 DEBUG: Estado actualizado en AdminDashboard - activeTab: ${activeTab}, showStats: ${showStats}, isLoadingStats: ${isLoadingStats}, stats.pendingPayments: ${stats.pendingPayments}`,
-      );
-    }
-  }, [activeTab, showStats, isLoadingStats, stats]);
-
-  // Log isMobile changes
-  useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      console.log(`🔍 DEBUG: isMobile cambió: ${isMobile}`);
-    }
-  }, [isMobile]);
-
-  const fetchStats = useCallback(async () => {
-    try {
-      if (process.env.NODE_ENV === "development") {
-        console.log("🔍 DEBUG: Iniciando fetchStats");
-      }
-      const timestamp = new Date().getTime();
-      const response = await fetch(`/api/admin/stats?t=${timestamp}`, {
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-        next: { revalidate: 0 },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setIsLoadingStats(false);
-        if (!areStatsEqual(data, prevStatsRef.current)) {
-          setStats(data);
-          prevStatsRef.current = data;
-          if (process.env.NODE_ENV === "development") {
-            console.log("🔍 DEBUG: Stats actualizadas", data);
-          }
-        } else {
-          if (process.env.NODE_ENV === "development") {
-            console.log("🔍 DEBUG: Omitiendo actualización de stats, datos idénticos");
-          }
-        }
-      } else {
-        throw new Error("Error fetching stats");
-      }
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      setIsLoadingStats(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStats]);
+  const { stats, isLoading, isConnected, error, refetch } = useRealTimeStats()
+  const [showStats, setShowStats] = useState(false)
+  const isMobile = useMobileDetection()
+  const [activeTab, setActiveTab] = useState("cars")
+  const [visibleTabs, setVisibleTabs] = useState<string[]>([])
 
   const handleTabChange = (value: string) => {
-    if (process.env.NODE_ENV === "development") {
-      console.log(`🔍 DEBUG: Cambiando tab de ${activeTab} a ${value}`);
-    }
-    setActiveTab(value);
-  };
+    setActiveTab(value)
+  }
 
   useEffect(() => {
-    if (prevMobileRef.current !== isMobile) {
-      setActiveTab("cars");
-      if (process.env.NODE_ENV === "development") {
-        console.log(`🔍 DEBUG: Actualizando activeTab a cars por cambio en isMobile`);
-      }
-      prevMobileRef.current = isMobile;
+    if (isMobile) {
+      setActiveTab("cars")
     }
-  }, [isMobile]);
+  }, [isMobile])
 
-  // Actualizar visibleTabs solo en el cliente
+  // Update visible tabs based on screen size
   useEffect(() => {
     const allTabs = [
       "confirmations",
@@ -175,21 +52,22 @@ function AdminDashboard() {
       "staff",
       "settings",
       "notifications",
-    ];
+    ]
+
     const updateVisibleTabs = () => {
       if (isMobile || window.innerWidth < 640) {
-        setVisibleTabs(["cars", "confirmations", "payments", "exit"]);
+        setVisibleTabs(["cars", "confirmations", "payments", "exit"])
       } else {
-        const width = window.innerWidth;
-        let maxTabs = width >= 1000 ? 8 : 4;
-        setVisibleTabs(allTabs.slice(0, maxTabs));
+        const width = window.innerWidth
+        const maxTabs = width >= 1000 ? 8 : 4
+        setVisibleTabs(allTabs.slice(0, maxTabs))
       }
-    };
+    }
 
-    updateVisibleTabs();
-    window.addEventListener("resize", updateVisibleTabs);
-    return () => window.removeEventListener("resize", updateVisibleTabs);
-  }, [isMobile]);
+    updateVisibleTabs()
+    window.addEventListener("resize", updateVisibleTabs)
+    return () => window.removeEventListener("resize", updateVisibleTabs)
+  }, [isMobile])
 
   const hiddenTabs = useMemo(() => {
     const allTabs = [
@@ -203,9 +81,26 @@ function AdminDashboard() {
       "staff",
       "settings",
       "notifications",
-    ];
-    return allTabs.filter((tab) => !visibleTabs.includes(tab));
-  }, [visibleTabs]);
+    ]
+    return allTabs.filter((tab) => !visibleTabs.includes(tab))
+  }, [visibleTabs])
+
+  // Connection status indicator
+  const ConnectionStatus = () => (
+    <div className="flex items-center gap-2">
+      {isConnected ? (
+        <div className="flex items-center gap-1 text-green-600">
+          <Wifi className="h-4 w-4" />
+          <span className="text-xs">En vivo</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1 text-orange-600">
+          <WifiOff className="h-4 w-4" />
+          <span className="text-xs">Desconectado</span>
+        </div>
+      )}
+    </div>
+  )
 
   if (isMobile) {
     return (
@@ -215,10 +110,19 @@ function AdminDashboard() {
             <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Panel Admin</h1>
             <p className="text-sm text-gray-600 dark:text-gray-300">Gestión de estacionamiento</p>
           </div>
-          <Button onClick={fetchStats} variant="outline" size="sm" disabled={isLoadingStats}>
-            <RefreshCw className={`h-4 w-4 ${isLoadingStats ? "animate-spin" : ""}`} />
-          </Button>
+          <div className="flex items-center gap-2">
+            <ConnectionStatus />
+            <Button onClick={refetch} variant="outline" size="sm" disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Card className="border border-gray-200 dark:border-gray-700">
           <CardHeader className="py-2 px-4 cursor-pointer" onClick={() => setShowStats(!showStats)}>
@@ -322,7 +226,7 @@ function AdminDashboard() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="py-2 px-4 text-sm flex-1 h-auto data-[state=open]:bg-primary data-[state=open]:text-primary-foreground text-center"
+                  className="py-2 px-4 text-sm flex-1 h-auto data-[state=open]:bg-primary data-[state=open]:text-primary-foreground text-center bg-transparent"
                 >
                   <MoreHorizontal className="h-4 w-4" />
                   Más
@@ -358,7 +262,7 @@ function AdminDashboard() {
             <ParkingConfirmation />
           </TabsContent>
           <TabsContent value="payments" className="m-0">
-            <PendingPayments onStatsUpdate={fetchStats} />
+            <PendingPayments onStatsUpdate={() => {}} />
           </TabsContent>
           <TabsContent value="exit" className="m-0">
             <VehicleExit />
@@ -373,7 +277,7 @@ function AdminDashboard() {
             <CarHistory />
           </TabsContent>
           <TabsContent value="staff" className="m-0">
-            <StaffManagement onStatsUpdate={fetchStats} />
+            <StaffManagement onStatsUpdate={() => {}} />
           </TabsContent>
           <TabsContent value="settings" className="m-0">
             <CompanySettings />
@@ -382,13 +286,8 @@ function AdminDashboard() {
             <NotificationSettings userType="admin" />
           </TabsContent>
         </Tabs>
-        <Card className="mt-6">
-          <CardContent>
-            <NotificationSettings userType="admin" />
-          </CardContent>
-        </Card>
       </div>
-    );
+    )
   }
 
   return (
@@ -398,95 +297,142 @@ function AdminDashboard() {
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Panel de Administración</h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">Gestión completa del sistema de estacionamiento</p>
         </div>
-        <Button onClick={fetchStats} variant="outline" disabled={isLoadingStats}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingStats ? "animate-spin" : ""}`} />
-          Actualizar
-        </Button>
+        <div className="flex items-center gap-4">
+          <ConnectionStatus />
+          <Button onClick={refetch} variant="outline" disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
+        <Card className="overflow-hidden relative">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3">
             <CardTitle className="text-sm font-medium">Pagos Pendientes</CardTitle>
-            <Badge variant={stats.pendingPayments > 0 ? "destructive" : "secondary"}>{stats.pendingPayments}</Badge>
+            <Badge
+              variant={stats.pendingPayments > 0 ? "destructive" : "secondary"}
+              className="absolute top-2 right-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold rounded-full"
+            >
+              {stats.pendingPayments}
+            </Badge>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{stats.pendingPayments}</div>
             <p className="text-xs text-muted-foreground">
               {stats.pendingPayments === 0 ? "Todos procesados" : "Requieren validación"}
             </p>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
+        <Card className="overflow-hidden relative">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3">
             <CardTitle className="text-sm font-medium">Confirmaciones</CardTitle>
-            <Badge variant={stats.pendingConfirmations > 0 ? "destructive" : "secondary"}>
+            <Badge
+              variant={stats.pendingConfirmations > 0 ? "destructive" : "secondary"}
+              className="absolute top-2 right-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold rounded-full"
+            >
               {stats.pendingConfirmations}
             </Badge>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{stats.pendingConfirmations}</div>
             <p className="text-xs text-muted-foreground">
               {stats.pendingConfirmations === 0 ? "Todos confirmados" : "Pendientes"}
             </p>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
+        <Card className="overflow-hidden relative">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3">
             <CardTitle className="text-sm font-medium">Personal Activo</CardTitle>
-            <Badge variant="secondary">{stats.totalStaff}</Badge>
+            <Badge
+              variant="secondary"
+              className="absolute top-2 right-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold rounded-full"
+            >
+              {stats.totalStaff}
+            </Badge>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{stats.totalStaff}</div>
             <p className="text-xs text-muted-foreground">Usuarios registrados</p>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
+        <Card className="overflow-hidden relative">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3">
             <CardTitle className="text-sm font-medium">Pagos Hoy</CardTitle>
-            <Badge>{stats.todayPayments}</Badge>
+            <Badge
+              variant="default"
+              className="absolute top-2 right-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold rounded-full"
+            >
+              {stats.todayPayments}
+            </Badge>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{stats.todayPayments}</div>
             <p className="text-xs text-muted-foreground">Procesados hoy</p>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
+        <Card className="overflow-hidden relative">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3">
             <CardTitle className="text-sm font-medium">Total Espacios</CardTitle>
-            <Badge variant="outline">{stats.totalTickets}</Badge>
+            <Badge
+              variant="outline"
+              className="absolute top-2 right-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold rounded-full"
+            >
+              {stats.totalTickets}
+            </Badge>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{stats.totalTickets}</div>
             <p className="text-xs text-muted-foreground">Espacios totales</p>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
+        <Card className="overflow-hidden relative">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3">
             <CardTitle className="text-sm font-medium">Espacios Libres</CardTitle>
-            <Badge variant="secondary">{stats.availableTickets}</Badge>
+            <Badge
+              variant="secondary"
+              className="absolute top-2 right-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold rounded-full"
+            >
+              {stats.availableTickets}
+            </Badge>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{stats.availableTickets}</div>
             <p className="text-xs text-muted-foreground">Disponibles</p>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
+        <Card className="overflow-hidden relative">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3">
             <CardTitle className="text-sm font-medium">Carros Estacionados</CardTitle>
-            <Badge variant="destructive">{stats.carsParked}</Badge>
+            <Badge
+              variant="destructive"
+              className="absolute top-2 right-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold rounded-full"
+            >
+              {stats.carsParked}
+            </Badge>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{stats.carsParked}</div>
             <p className="text-xs text-muted-foreground">Actualmente</p>
           </CardContent>
         </Card>
-        <Card className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-2">
+        <Card className="overflow-hidden relative">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3">
             <CardTitle className="text-sm font-medium">Listos para Salir</CardTitle>
-            <Badge variant={stats.paidTickets > 0 ? "default" : "secondary"}>{stats.paidTickets}</Badge>
+            <Badge
+              variant={stats.paidTickets > 0 ? "default" : "secondary"}
+              className="absolute top-2 right-2 h-6 w-6 p-0 flex items-center justify-center text-xs font-bold rounded-full"
+            >
+              {stats.paidTickets}
+            </Badge>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-3">
             <div className="text-2xl font-bold">{stats.paidTickets}</div>
             <p className="text-xs text-muted-foreground">Pagados</p>
           </CardContent>
@@ -531,9 +477,7 @@ function AdminDashboard() {
                 {tab === "exit" && (
                   <>
                     Salida
-                    {stats.paidTickets > 0 && (
-                      <Badge className="ml-1 text-xs">{stats.paidTickets}</Badge>
-                    )}
+                    {stats.paidTickets > 0 && <Badge className="ml-1 text-xs">{stats.paidTickets}</Badge>}
                   </>
                 )}
                 {tab === "qr" && "QR"}
@@ -549,7 +493,7 @@ function AdminDashboard() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="py-2 px-4 text-sm flex-1 h-auto data-[state=open]:bg-primary data-[state=open]:text-primary-foreground text-center"
+                    className="py-2 px-4 text-sm flex-1 h-auto data-[state=open]:bg-primary data-[state=open]:text-primary-foreground text-center bg-transparent"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                     Más
@@ -557,11 +501,7 @@ function AdminDashboard() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {hiddenTabs.map((tab) => (
-                    <DropdownMenuItem
-                      key={tab}
-                      onClick={() => handleTabChange(tab)}
-                      className="cursor-pointer"
-                    >
+                    <DropdownMenuItem key={tab} onClick={() => handleTabChange(tab)} className="cursor-pointer">
                       {tab === "tickets" && "Espacios"}
                       {tab === "qr" && "QR"}
                       {tab === "history" && "Historial"}
@@ -580,7 +520,7 @@ function AdminDashboard() {
           <ParkingConfirmation />
         </TabsContent>
         <TabsContent value="payments">
-          <PendingPayments onStatsUpdate={fetchStats} />
+          <PendingPayments onStatsUpdate={() => {}} />
         </TabsContent>
         <TabsContent value="tickets">
           <TicketManagement />
@@ -598,7 +538,7 @@ function AdminDashboard() {
           <CarHistory />
         </TabsContent>
         <TabsContent value="staff">
-          <StaffManagement onStatsUpdate={fetchStats} />
+          <StaffManagement onStatsUpdate={() => {}} />
         </TabsContent>
         <TabsContent value="settings">
           <CompanySettings />
@@ -607,13 +547,8 @@ function AdminDashboard() {
           <NotificationSettings userType="admin" />
         </TabsContent>
       </Tabs>
-      <Card className="mt-6">
-        <CardContent>
-          <NotificationSettings userType="admin" />
-        </CardContent>
-      </Card>
     </div>
-  );
+  )
 }
 
-export default React.memo(AdminDashboard);
+export default React.memo(AdminDashboard)
