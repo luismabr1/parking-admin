@@ -1,52 +1,54 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Download, QrCode, RefreshCw, Printer } from "lucide-react"
-import QRCode from "qrcode"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Download, QrCode, RefreshCw, Printer } from "lucide-react";
+import QRCode from "qrcode";
 
 interface Ticket {
-  _id: string
-  codigoTicket: string
-  estado: string
-  fechaCreacion?: string
+  _id: string;
+  codigoTicket: string;
+  estado: string;
+  fechaCreacion?: string;
 }
 
 export default function QRGenerator() {
-  const [tickets, setTickets] = useState<Ticket[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [generatingQR, setGeneratingQR] = useState<string | null>(null)
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [generatingQR, setGeneratingQR] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTickets()
-  }, [])
+    fetchTickets();
+  }, []);
 
   const fetchTickets = async () => {
     try {
-      setIsLoading(true)
-      const response = await fetch("/api/admin/tickets")
+      setIsLoading(true);
+      const response = await fetch("/api/admin/tickets");
       if (response.ok) {
-        const data = await response.json()
-        setTickets(data.tickets)
+        const data = await response.json();
+        // Ordenar tickets por codigoTicket de menor a mayor
+        const sortedTickets = data.tickets.sort((a, b) =>
+          a.codigoTicket.localeCompare(b.codigoTicket)
+        );
+        setTickets(sortedTickets);
       }
     } catch (error) {
-      console.error("Error fetching tickets:", error)
+      console.error("Error fetching tickets:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  const generateQRCode = async (ticketCode: string) => {
+  const generateQRCode = async (ticketCode: string): Promise<string | null> => {
     try {
-      setGeneratingQR(ticketCode)
+      setGeneratingQR(ticketCode);
 
-      // Usar variable de entorno NEXT_PUBLIC_TICKET_URL o window.location.origin como fallback
-      const baseUrl = process.env.NEXT_PUBLIC_TICKET_URL || window.location.origin
-      const ticketUrl = `${baseUrl}/ticket/${ticketCode}`
+      const baseUrl = window.location.origin;
+      const ticketUrl = `${baseUrl}/ticket/${ticketCode}`;
 
-      // Generar el código QR
       const qrDataUrl = await QRCode.toDataURL(ticketUrl, {
         width: 300,
         margin: 2,
@@ -54,32 +56,42 @@ export default function QRGenerator() {
           dark: "#000000",
           light: "#FFFFFF",
         },
-      })
+      });
 
-      return qrDataUrl
+      return qrDataUrl;
     } catch (error) {
-      console.error("Error generating QR code:", error)
-      return null
+      console.error("Error generating QR code:", error);
+      return null;
     } finally {
-      setGeneratingQR(null)
+      setGeneratingQR(null);
     }
-  }
+  };
 
   const downloadQR = async (ticketCode: string) => {
-    const qrDataUrl = await generateQRCode(ticketCode)
+    const qrDataUrl = await generateQRCode(ticketCode);
     if (qrDataUrl) {
-      const link = document.createElement("a")
-      link.download = `QR_${ticketCode}.png`
-      link.href = qrDataUrl
-      link.click()
+      const link = document.createElement("a");
+      link.download = `QR_${ticketCode}.png`;
+      link.href = qrDataUrl;
+      link.click();
     }
-  }
+  };
 
   const printQRCard = async (ticketCode: string) => {
-    const qrDataUrl = await generateQRCode(ticketCode)
-    if (qrDataUrl) {
-      const printWindow = window.open("", "_blank")
-      if (printWindow) {
+    setGeneratingQR(ticketCode); // Indicar que estamos generando para deshabilitar el botón
+    const qrDataUrl = await generateQRCode(ticketCode); // Esperar a que el QR esté listo
+
+    if (!qrDataUrl) {
+      console.error("Failed to generate QR code for printing");
+      alert("Error al generar el código QR. Por favor, intenta de nuevo.");
+      setGeneratingQR(null);
+      return;
+    }
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      // Añadir un pequeño retraso para asegurar que el navegador esté listo
+      setTimeout(() => {
         printWindow.document.write(`
           <!DOCTYPE html>
           <html>
@@ -178,7 +190,7 @@ export default function QRGenerator() {
                 }
                 
                 .disclaimer-content {
-                  font-size: 11px;
+                  font-size: 9px;
                   line-height: 1.4;
                   color: #333;
                   text-align: justify;
@@ -186,7 +198,7 @@ export default function QRGenerator() {
                 }
                 
                 .disclaimer-list {
-                  font-size: 10px;
+                  font-size: 8px;
                   line-height: 1.3;
                   color: #555;
                   text-align: left;
@@ -274,6 +286,9 @@ export default function QRGenerator() {
                         3. Espere la validación<br>
                         4. Presente al salir
                       </div>
+                      <div class="disclaimer-content">
+                        ⚠️ Este QR es válido solo para una única presentación. Duplicados no serán aceptados.
+                      </div>
                     </div>
                   </div>
                   
@@ -281,27 +296,27 @@ export default function QRGenerator() {
                   <div class="card-back">
                     <div class="card-back-content">
                       <div>
-                        <div class="disclaimer-title">⚠️ Términos</div>
+                        <div class="disclaimer-title">⚠️ Términos y Condiciones</div>
                       </div>
                       
                       <div class="disclaimer-content">
-                        <strong>IMPORTANTE:</strong> La empresa NO se hace responsable por la pérdida, robo o daño de esta tarjeta.
-                      </div>
-                      
-                      <div class="disclaimer-list">
-                        <strong>Condiciones:</strong>
-                        <ul>
-                          <li>Tarjeta personal e intransferible</li>
-                          <li>Conservar durante toda la estadía</li>
-                          <li>Pérdida genera cargos adicionales</li>
-                          <li>Pago antes de salir</li>
-                          <li>Horarios: 24 horas</li>
-                          <li>Tarifas sujetas a cambios</li>
-                        </ul>
+                        <strong>Conserve el ticket para retirar su vehículo.</strong>
                       </div>
                       
                       <div class="disclaimer-content">
-                        <strong>Responsabilidad:</strong> El usuario es responsable del cuidado de esta tarjeta. Reportar pérdidas inmediatamente.
+                        Nuestra responsabilidad está amparada por una póliza de responsabilidad civil y nuestra responsabilidad por daños se extiende hasta el monto de la cobertura y condiciones del referido contrato de seguro.
+                      </div>
+                      
+                      <div class="disclaimer-content">
+                        El usuario aceptará la indemnización que acuerde la compañía aseguradora. En el caso de cualquier tipo de siniestro o consecuencia, libera al dueño o administrador de este establecimiento de la obligación de reparación. No respondemos por los objetos dejados en el vehículo, desperfectos mecánicos y fallas eléctricas.
+                      </div>
+                      
+                      <div class="disclaimer-content">
+                        Nuestra responsabilidad aseguradora se limita al casco del vehículo y en el caso de pérdida total o mientras dure la transacción con la empresa aseguradora por la reparación de daños.
+                      </div>
+                      
+                      <div class="disclaimer-content">
+                        La empresa no se hace responsable por los daños o sucesos referidos al vehículo una vez este se retire del lugar.
                       </div>
                       
                       <div class="contact-info">
@@ -314,27 +329,32 @@ export default function QRGenerator() {
               </div>
             </body>
           </html>
-        `)
-        printWindow.document.close()
-        printWindow.print()
-      }
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        setGeneratingQR(null); // Liberar el estado después de imprimir
+      }, 100); // Retraso de 100ms para asegurar que la ventana esté lista
+    } else {
+      console.error("Failed to open print window");
+      alert("No se pudo abrir la ventana de impresión. Por favor, intenta de nuevo.");
+      setGeneratingQR(null);
     }
-  }
+  };
 
   const getStatusBadge = (estado: string) => {
     switch (estado) {
       case "disponible":
-        return <Badge variant="secondary">Disponible</Badge>
+        return <Badge variant="secondary">Disponible</Badge>;
       case "ocupado":
-        return <Badge variant="destructive">Ocupado</Badge>
+        return <Badge variant="destructive">Ocupado</Badge>;
       case "pagado_pendiente":
-        return <Badge variant="outline">Pago Pendiente</Badge>
+        return <Badge variant="outline">Pago Pendiente</Badge>;
       case "pagado_validado":
-        return <Badge>Pagado</Badge>
+        return <Badge>Pagado</Badge>;
       default:
-        return <Badge variant="outline">{estado}</Badge>
+        return <Badge variant="outline">{estado}</Badge>;
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -348,7 +368,7 @@ export default function QRGenerator() {
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -400,10 +420,10 @@ export default function QRGenerator() {
           <div className="text-center py-8 text-gray-500">
             <QrCode className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No hay tickets disponibles</p>
-            <p className="text-sm">Cree tickets primero en la pestaña &quot;Espacios&quot;</p>
+            <p className="text-sm">Cree tickets primero en la pestaña "Espacios"</p>
           </div>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
