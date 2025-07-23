@@ -15,11 +15,6 @@ if (!uri) {
   process.exit(1)
 }
 
-const options = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-}
-
 let client: MongoClient
 let clientPromise: Promise<MongoClient>
 
@@ -29,13 +24,13 @@ if (process.env.NODE_ENV === "development") {
   }
 
   if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri, options)
+    client = new MongoClient(uri)
     globalWithMongo._mongoClientPromise = client.connect()
     console.log("MongoDB client initialized in development mode")
   }
   clientPromise = globalWithMongo._mongoClientPromise
 } else {
-  client = new MongoClient(uri, options)
+  client = new MongoClient(uri)
   clientPromise = client.connect()
   console.log("MongoDB client initialized in production mode")
 }

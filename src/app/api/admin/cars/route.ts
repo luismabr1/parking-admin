@@ -51,7 +51,6 @@ async function handleCarRequest(request, method) {
 
     // Manejar tanto FormData como JSON
     if (contentType.includes("multipart/form-data")) {
-      // Manejo de FormData (para uploads de imágenes)
       const formData = await request.formData()
       carId = formData.get("carId")?.toString()
       isUpdate = method === "PUT" && carId
@@ -67,7 +66,6 @@ async function handleCarRequest(request, method) {
         nota: formData.get("nota")?.toString() || "",
       }
 
-      // Manejar imágenes si existen
       const plateImage = formData.get("plateImage") as File | null
       const vehicleImage = formData.get("vehicleImage") as File | null
       const plateImageUrl = formData.get("plateImageUrl")?.toString()
@@ -100,7 +98,6 @@ async function handleCarRequest(request, method) {
         }
       }
     } else {
-      // Manejo de JSON (para formulario manual)
       const jsonData = await request.json()
       carId = jsonData.carId
       isUpdate = method === "PUT" && carId
@@ -116,7 +113,6 @@ async function handleCarRequest(request, method) {
         nota: jsonData.nota || "",
       }
 
-      // Si hay imágenes en el JSON (desde captura de vehículo)
       if (jsonData.imagenes) {
         carData.imagenes = {
           ...jsonData.imagenes,
@@ -129,7 +125,6 @@ async function handleCarRequest(request, method) {
       console.log(`${method} request received`, { carId, ...carData })
     }
 
-    // Validar campos requeridos para formulario manual
     if (!carData.placa || !carData.ticketAsociado) {
       return NextResponse.json(
         {
@@ -147,7 +142,6 @@ async function handleCarRequest(request, method) {
       }
     }
 
-    // VALIDACIÓN CRÍTICA: Verificar disponibilidad del ticket antes de asignar
     if (!isUpdate || (isUpdate && existingCar.ticketAsociado !== carData.ticketAsociado)) {
       if (process.env.NODE_ENV === "development") {
         console.log(`🎫 DEBUG: Verificando disponibilidad del ticket: ${carData.ticketAsociado}`)
@@ -200,7 +194,6 @@ async function handleCarRequest(request, method) {
       lastModified: now,
     }
 
-    // Si no hay imágenes, agregar estructura básica
     if (!finalCarData.imagenes) {
       finalCarData.imagenes = {
         fechaCaptura: now,
@@ -218,7 +211,6 @@ async function handleCarRequest(request, method) {
       result = await db.collection("cars").insertOne(finalCarData)
       finalCarData._id = result.insertedId
 
-      // ACTUALIZACIÓN CRÍTICA: Actualizar ticket asociado con validación adicional
       if (carData.ticketAsociado) {
         if (process.env.NODE_ENV === "development") {
           console.log(`🎫 DEBUG: Actualizando ticket ${carData.ticketAsociado} a estado ocupado`)
@@ -227,7 +219,7 @@ async function handleCarRequest(request, method) {
         const updateResult = await db.collection("tickets").updateOne(
           {
             codigoTicket: carData.ticketAsociado,
-            estado: "disponible", // Solo actualizar si está disponible
+            estado: "disponible",
           },
           {
             $set: {
@@ -251,13 +243,10 @@ async function handleCarRequest(request, method) {
         )
 
         if (updateResult.matchedCount === 0) {
-          // Si no se pudo actualizar el ticket, revertir la inserción del carro
           await db.collection("cars").deleteOne({ _id: result.insertedId })
-
           if (process.env.NODE_ENV === "development") {
             console.log(`🎫 DEBUG: No se pudo actualizar el ticket ${carData.ticketAsociado}, revirtiendo inserción`)
           }
-
           return NextResponse.json(
             { error: `El ticket ${carData.ticketAsociado} ya no está disponible` },
             { status: 400 },
@@ -266,6 +255,35 @@ async function handleCarRequest(request, method) {
 
         if (process.env.NODE_ENV === "development") {
           console.log("🎫 DEBUG - Ticket actualizado exitosamente:", carData.ticketAsociado, updateResult)
+        }
+
+        // Enviar notificación al equipo administrativo
+        if (updateResult.modifiedCount > 0) {
+          console.log(`🔔 [CARS] Enviando notificación a administradores para ticket ${carData.ticketAsociado}`)
+          const notificationResponse = await fetch("http://localhost:3000/api/send-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "vehicle_registered",
+              userType: "admin",
+              ticketCode: carData.ticketAsociado,
+              data: {
+                plate: carData.placa,
+                timestamp: now.toISOString(),
+              },
+            }),
+          })
+
+          if (notificationResponse.ok) {
+            const notificationResult = await notificationResponse.json()
+            console.log(
+              `✅ [CARS] Notificación enviada exitosamente: ${notificationResult.sent}/${notificationResult.total}`,
+            )
+          } else {
+            console.error(
+              `⚠️ [CARS] Error al enviar notificación: ${notificationResponse.status} - ${await notificationResponse.text()}`,
+            )
+          }
         }
       }
 
