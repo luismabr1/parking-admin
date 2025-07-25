@@ -17,11 +17,10 @@ export async function POST(request: Request) {
     console.log("   Keys P256DH:", subscription?.keys?.p256dh ? "✅ Presente" : "❌ Faltante")
     console.log("   Keys Auth:", subscription?.keys?.auth ? "✅ Presente" : "❌ Faltante")
 
-    if (!subscription || !userType || !ticketCode) {
+    if (!subscription || !userType) {
       console.error("❌ [PUSH-SUBSCRIPTIONS] ERROR: Datos incompletos")
       console.error("   Subscription:", !!subscription)
       console.error("   UserType:", !!userType)
-      console.error("   TicketCode:", !!ticketCode)
       return NextResponse.json({ message: "Datos incompletos" }, { status: 400 })
     }
 
@@ -35,12 +34,10 @@ export async function POST(request: Request) {
 
     // Check for existing subscriptions
     console.log("🔍 [PUSH-SUBSCRIPTIONS] Verificando suscripciones existentes...")
-
     const existingSubscriptions = await db
       .collection("ticket_subscriptions")
       .find({
         "subscription.endpoint": subscription.endpoint,
-        ticketCode,
         userType,
       })
       .toArray()
@@ -54,16 +51,15 @@ export async function POST(request: Request) {
       })
     }
 
-    // Remove any existing subscription for this endpoint and ticket/userType combination
+    // Remove any existing subscription for this endpoint and userType
     const deleteResult = await db.collection("ticket_subscriptions").deleteMany({
       "subscription.endpoint": subscription.endpoint,
-      ticketCode,
       userType,
     })
 
     console.log("🗑️ [PUSH-SUBSCRIPTIONS] Suscripciones eliminadas:", deleteResult.deletedCount)
 
-    // Create new subscription with extended lifecycle
+    // Create new subscription with extended lifecycle and ticketCodes array
     const subscriptionData = {
       subscription: {
         endpoint: subscription.endpoint,
@@ -73,20 +69,18 @@ export async function POST(request: Request) {
         },
       },
       userType,
-      ticketCode,
+      ticketCodes: ticketCode ? [ticketCode] : [], // Array para múltiples tickets
       isActive: true,
       createdAt: new Date(),
       lastUsed: new Date(),
       // Lifecycle tracking
       lifecycle: {
-        stage: "active", // active, payment_pending, payment_validated, vehicle_exit, completed
+        stage: "active",
         createdAt: new Date(),
         updatedAt: new Date(),
       },
-      // Don't auto-expire until vehicle exit is complete
       autoExpire: false,
-      expiresAt: null, // Will be set when vehicle exits
-      // Device info for debugging
+      expiresAt: null,
       deviceInfo: {
         userAgent: request.headers.get("user-agent") || "Unknown",
         timestamp: new Date(),
@@ -104,15 +98,14 @@ export async function POST(request: Request) {
     console.log("✅ [PUSH-SUBSCRIPTIONS] Suscripción guardada exitosamente")
     console.log("   ID:", result.insertedId)
     console.log("   Endpoint:", subscription.endpoint.substring(0, 50) + "...")
-    console.log("   Para:", `${userType} - ${ticketCode}`)
+    console.log("   Para:", `${userType} - ${ticketCode || "Sin ticket específico"}`)
 
-    // Verify the subscription was saved correctly
     const savedSubscription = await db.collection("ticket_subscriptions").findOne({ _id: result.insertedId })
     console.log("🔍 [PUSH-SUBSCRIPTIONS] Verificación de guardado:")
     console.log("   Encontrada:", !!savedSubscription)
     console.log("   IsActive:", savedSubscription?.isActive)
     console.log("   UserType:", savedSubscription?.userType)
-    console.log("   TicketCode:", savedSubscription?.ticketCode)
+    console.log("   TicketCodes:", savedSubscription?.ticketCodes)
 
     console.log("✅ [PUSH-SUBSCRIPTIONS] ===== SUSCRIPCIÓN COMPLETADA =====")
 
@@ -123,7 +116,7 @@ export async function POST(request: Request) {
         subscriptionId: result.insertedId,
         debug: {
           userType,
-          ticketCode,
+          ticketCodes: savedSubscription?.ticketCodes || [],
           endpoint: subscription.endpoint.substring(0, 50) + "...",
           lifecycle: subscriptionData.lifecycle.stage,
         },
@@ -154,7 +147,6 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ message: "Endpoint de suscripción requerido" }, { status: 400 })
     }
 
-    // Find existing subscriptions before deletion
     const existingSubscriptions = await db
       .collection("ticket_subscriptions")
       .find({
@@ -168,12 +160,11 @@ export async function DELETE(request: Request) {
       console.log("📋 [PUSH-SUBSCRIPTIONS] Detalles de suscripciones a eliminar:")
       existingSubscriptions.forEach((sub, index) => {
         console.log(
-          `   ${index + 1}. UserType: ${sub.userType}, TicketCode: ${sub.ticketCode}, IsActive: ${sub.isActive}`,
+          `   ${index + 1}. UserType: ${sub.userType}, TicketCodes: ${sub.ticketCodes}, IsActive: ${sub.isActive}`,
         )
       })
     }
 
-    // Only mark as inactive, don't delete (for debugging and lifecycle management)
     const result = await db.collection("ticket_subscriptions").updateMany(
       { "subscription.endpoint": subscription.endpoint },
       {

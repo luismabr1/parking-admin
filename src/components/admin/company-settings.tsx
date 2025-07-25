@@ -1,23 +1,26 @@
-"use client"
+// components/AdminCompanySettings.tsx
+"use client";
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Save, Clock, Sun, Moon } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Save, Clock, Sun, Moon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Bank {
-  _id: string
-  code: string
-  name: string
+  _id: string;
+  code: string;
+  name: string;
 }
 
 export default function AdminCompanySettings() {
+  const pricingModel = process.env.NEXT_PUBLIC_PRICING_MODEL as "variable" | "fija" || "variable";
+  const tariffTitle = pricingModel === "fija" ? "Tarifa Fija" : "Configuración de Tarifas";
+
   const [settings, setSettings] = useState({
     pagoMovil: {
       banco: "",
@@ -37,30 +40,30 @@ export default function AdminCompanySettings() {
       horaInicioNocturno: "00:00",
       horaFinNocturno: "06:00",
     },
-  })
+  });
 
   const [displayValues, setDisplayValues] = useState({
     precioHoraDiurno: "3,00",
     precioHoraNocturno: "4,00",
     tasaCambio: "35,00",
-  })
+  });
 
-  const [banks, setBanks] = useState<Bank[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [message, setMessage] = useState("")
-  const [alertVariant, setAlertVariant] = useState<"default" | "destructive" | "warning">("default")
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [alertVariant, setAlertVariant] = useState<"default" | "destructive" | "warning">("default");
 
   useEffect(() => {
     Promise.all([fetchSettings(), fetchBanks()])
       .then(() => {
-        setIsLoading(false)
+        setIsLoading(false);
       })
       .catch((error) => {
-        console.error("Error initializing:", error)
-        setIsLoading(false)
-      })
-  }, [])
+        console.error("Error initializing:", error);
+        setIsLoading(false);
+      });
+  }, []);
 
   const fetchSettings = async () => {
     try {
@@ -69,27 +72,27 @@ export default function AdminCompanySettings() {
         headers: {
           "Content-Type": "application/json",
         },
-      })
+      });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json()
-      const { _id, ...settingsWithoutId } = data
-      setSettings(settingsWithoutId)
+      const data = await response.json();
+      const { _id, ...settingsWithoutId } = data;
+      setSettings(settingsWithoutId);
 
       setDisplayValues({
         precioHoraDiurno: formatNumberForDisplay(settingsWithoutId.tarifas.precioHoraDiurno),
         precioHoraNocturno: formatNumberForDisplay(settingsWithoutId.tarifas.precioHoraNocturno),
         tasaCambio: formatNumberForDisplay(settingsWithoutId.tarifas.tasaCambio),
-      })
+      });
     } catch (err) {
-      console.error("Error fetching settings:", err)
-      setMessage("Error al cargar la configuración")
-      setAlertVariant("destructive")
+      console.error("Error fetching settings:", err);
+      setMessage("Error al cargar la configuración");
+      setAlertVariant("destructive");
     }
-  }
+  };
 
   const fetchBanks = async () => {
     try {
@@ -98,138 +101,138 @@ export default function AdminCompanySettings() {
         headers: {
           "Content-Type": "application/json",
         },
-      })
+      });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json()
-      setBanks(data)
+      const data = await response.json();
+      setBanks(data);
     } catch (err) {
-      console.error("Error fetching banks:", err)
+      console.error("Error fetching banks:", err);
     }
-  }
+  };
 
   const formatNumberForDisplay = (num: number): string => {
-    return num.toFixed(2).replace(".", ",")
-  }
+    return num.toFixed(2).replace(".", ",");
+  };
 
   const parseNumberFromText = (text: string): number => {
-    const normalizedText = text.replace(",", ".")
-    const parsed = Number.parseFloat(normalizedText)
-    return isNaN(parsed) ? 0 : Number.parseFloat(parsed.toFixed(2))
-  }
+    const normalizedText = text.replace(",", ".");
+    const parsed = Number.parseFloat(normalizedText);
+    return isNaN(parsed) ? 0 : Number.parseFloat(parsed.toFixed(2));
+  };
 
   const isValidNumberInput = (text: string): boolean => {
-    const regex = /^[0-9]*[,.]?[0-9]*$/
-    return regex.test(text) && (text.match(/[,.]/g) || []).length <= 1
-  }
+    const regex = /^[0-9]*[,.]?[0-9]*$/;
+    return regex.test(text) && (text.match(/[,.]/g) || []).length <= 1;
+  };
 
   const isValidTimeInput = (text: string): boolean => {
-    const regex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/
-    return regex.test(text)
-  }
+    const regex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    return regex.test(text);
+  };
 
   const updateTarifas = (field: string, value: string) => {
     if (!isValidNumberInput(value)) {
-      return
+      return;
     }
 
     setDisplayValues((prev) => ({
       ...prev,
       [field]: value,
-    }))
+    }));
 
-    const numValue = parseNumberFromText(value)
+    const numValue = parseNumberFromText(value);
     setSettings((prev) => ({
       ...prev,
       tarifas: { ...prev.tarifas, [field]: numValue },
-    }))
-  }
+    }));
+  };
 
   const handleTarifaBlur = (field: string, value: string) => {
-    const numValue = parseNumberFromText(value)
-    const formattedValue = formatNumberForDisplay(numValue)
+    const numValue = parseNumberFromText(value);
+    const formattedValue = formatNumberForDisplay(numValue);
 
     setDisplayValues((prev) => ({
       ...prev,
       [field]: formattedValue,
-    }))
+    }));
 
     setSettings((prev) => ({
       ...prev,
       tarifas: { ...prev.tarifas, [field]: numValue },
-    }))
-  }
+    }));
+  };
 
   const updateHorario = (field: string, value: string) => {
     setSettings((prev) => ({
       ...prev,
       tarifas: { ...prev.tarifas, [field]: value },
-    }))
-  }
+    }));
+  };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setIsSaving(true)
-  setMessage("")
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setMessage("");
 
-  if (!isValidTimeInput(settings.tarifas.horaInicioNocturno) || !isValidTimeInput(settings.tarifas.horaFinNocturno)) {
-    setMessage("Formato de hora inválido. Use HH:mm (ej: 00:00)")
-    setAlertVariant("destructive")
-    setIsSaving(false)
-    return
-  }
-
-  try {
-    const settingsToSend = {
-      pagoMovil: { ...settings.pagoMovil },
-      transferencia: { ...settings.transferencia },
-      tarifas: { ...settings.tarifas },
+    if (!isValidTimeInput(settings.tarifas.horaInicioNocturno) || !isValidTimeInput(settings.tarifas.horaFinNocturno)) {
+      setMessage("Formato de hora inválido. Use HH:mm (ej: 00:00)");
+      setAlertVariant("destructive");
+      setIsSaving(false);
+      return;
     }
 
-    console.log("Sending settings:", JSON.stringify(settingsToSend, null, 2))
-    const response = await fetch("/api/admin/company-settings", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(settingsToSend),
-    })
+    try {
+      const settingsToSend = {
+        pagoMovil: { ...settings.pagoMovil },
+        transferencia: { ...settings.transferencia },
+        tarifas: { ...settings.tarifas },
+      };
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.log("Server response:", errorText)
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+      console.log("Sending settings:", JSON.stringify(settingsToSend, null, 2));
+      const response = await fetch("/api/admin/company-settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(settingsToSend),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log("Server response:", errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      }
+
+      const result = await response.json();
+      setMessage(result.message || "Configuración guardada exitosamente");
+      setAlertVariant("default");
+    } catch (err) {
+      console.error("Error submitting settings:", err);
+      setMessage(err instanceof Error ? err.message : "Error al guardar la configuración");
+      setAlertVariant("destructive");
+    } finally {
+      setIsSaving(false);
     }
-
-    const result = await response.json()
-    setMessage(result.message || "Configuración guardada exitosamente")
-    setAlertVariant("default")
-  } catch (err) {
-    console.error("Error submitting settings:", err)
-    setMessage(err instanceof Error ? err.message : "Error al guardar la configuración")
-    setAlertVariant("destructive")
-  } finally {
-    setIsSaving(false)
-  }
-}
+  };
 
   const updatePagoMovil = (field: string, value: string) => {
     setSettings((prev) => ({
       ...prev,
       pagoMovil: { ...prev.pagoMovil, [field]: value },
-    }))
-  }
+    }));
+  };
 
   const updateTransferencia = (field: string, value: string) => {
     setSettings((prev) => ({
       ...prev,
       transferencia: { ...prev.transferencia, [field]: value },
-    }))
-  }
+    }));
+  };
 
   if (isLoading) {
     return (
@@ -241,7 +244,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <div className="text-center py-8">Cargando configuración...</div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -350,7 +353,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Configuración de Tarifas
+              {tariffTitle}
             </h3>
 
             {/* Tarifas Diurnas y Nocturnas */}
@@ -359,10 +362,12 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="space-y-4 p-4 border rounded-lg bg-yellow-50">
                 <div className="flex items-center gap-2 text-lg font-medium text-yellow-800">
                   <Sun className="h-5 w-5" />
-                  Tarifa Diurna
+                  {pricingModel === "fija" ? "Tarifa Fija Diurna" : "Tarifa Diurna"}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="precioHoraDiurno">Precio por Hora (USD)</Label>
+                  <Label htmlFor="precioHoraDiurno">
+                    {pricingModel === "fija" ? "Tarifa Diurna" : "Precio por Hora Diurno"} (USD)
+                  </Label>
                   <Input
                     id="precioHoraDiurno"
                     type="text"
@@ -371,7 +376,11 @@ const handleSubmit = async (e: React.FormEvent) => {
                     onBlur={(e) => handleTarifaBlur("precioHoraDiurno", e.target.value)}
                     placeholder="Ej. 3,00"
                   />
-                  <p className="text-xs text-gray-600">Tarifa aplicada durante el día. Use coma (,) para decimales.</p>
+                  <p className="text-xs text-gray-600">
+                    {pricingModel === "fija"
+                      ? "Tarifa fija aplicada durante el día. Use coma (,) para decimales."
+                      : "Tarifa aplicada durante el día. Use coma (,) para decimales."}
+                  </p>
                 </div>
               </div>
 
@@ -379,10 +388,12 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="space-y-4 p-4 border rounded-lg bg-blue-50">
                 <div className="flex items-center gap-2 text-lg font-medium text-blue-800">
                   <Moon className="h-5 w-5" />
-                  Tarifa Nocturna
+                  {pricingModel === "fija" ? "Tarifa Fija Nocturna" : "Tarifa Nocturna"}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="precioHoraNocturno">Precio por Hora (USD)</Label>
+                  <Label htmlFor="precioHoraNocturno">
+                    {pricingModel === "fija" ? "Tarifa Nocturna" : "Precio por Hora Nocturno"} (USD)
+                  </Label>
                   <Input
                     id="precioHoraNocturno"
                     type="text"
@@ -392,7 +403,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                     placeholder="Ej. 4,00"
                   />
                   <p className="text-xs text-gray-600">
-                    Tarifa aplicada durante la noche. Use coma (,) para decimales.
+                    {pricingModel === "fija"
+                      ? "Tarifa fija aplicada durante la noche. Use coma (,) para decimales."
+                      : "Tarifa aplicada durante la noche. Use coma (,) para decimales."}
                   </p>
                 </div>
               </div>
@@ -429,7 +442,9 @@ const handleSubmit = async (e: React.FormEvent) => {
 
             {/* Tasa de Cambio */}
             <div className="space-y-2">
-              <Label htmlFor="tasaCambio">Tasa de Cambio (Bs. por USD)</Label>
+              <Label htmlFor="tasaCambio教科
+
+System: cambio">Tasa de Cambio (Bs. por USD)</Label>
               <Input
                 id="tasaCambio"
                 type="text"
@@ -450,15 +465,21 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <div className="flex items-center gap-2">
                   <Sun className="h-4 w-4 text-yellow-600" />
                   <div>
-                    <span className="text-gray-600">Diurna:</span>
-                    <span className="font-medium ml-2">${settings.tarifas.precioHoraDiurno.toFixed(2)}/h</span>
+                    <span className="text-gray-600">{pricingModel === "fija" ? "Fija Diurna" : "Diurna"}:</span>
+                    <span className="font-medium ml-2">
+                      ${settings.tarifas.precioHoraDiurno.toFixed(2)}
+                      {pricingModel === "variable" && "/h"}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Moon className="h-4 w-4 text-blue-600" />
                   <div>
-                    <span className="text-gray-600">Nocturna:</span>
-                    <span className="font-medium ml-2">${settings.tarifas.precioHoraNocturno.toFixed(2)}/h</span>
+                    <span className="text-gray-600">{pricingModel === "fija" ? "Fija Nocturna" : "Nocturna"}:</span>
+                    <span className="font-medium ml-2">
+                      ${settings.tarifas.precioHoraNocturno.toFixed(2)}
+                      {pricingModel === "variable" && "/h"}
+                    </span>
                   </div>
                 </div>
                 <div>
@@ -479,5 +500,5 @@ const handleSubmit = async (e: React.FormEvent) => {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }

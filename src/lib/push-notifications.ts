@@ -44,7 +44,7 @@ export class PushNotificationService {
       subscription.keys &&
       typeof subscription.keys.p256dh === "string" &&
       typeof subscription.keys.auth === "string" &&
-      subscription.keys.p256dh.length > 10 && // Basic length check for validity
+      subscription.keys.p256dh.length > 10 &&
       subscription.keys.auth.length > 10;
     console.log(
       `🔍 [PUSH-SERVICE] Validating subscription: Endpoint=${subscription.endpoint.substring(
@@ -77,13 +77,25 @@ export class PushNotificationService {
 
       webpush.setVapidDetails("mailto:admin@parking.com", this.vapidKeys.publicKey, this.vapidKeys.privateKey);
 
+      // Convert payload to a Web Push compatible format
+      const pushPayload = JSON.stringify({
+        notification: {
+          title: payload.title,
+          body: payload.body,
+          icon: payload.icon,
+          badge: payload.badge,
+          tag: payload.tag,
+          data: payload.data,
+        },
+      });
+
       console.log("📤 [PUSH-SERVICE] Enviando notificación:");
       console.log("   Endpoint:", subscription.endpoint.substring(0, 50) + "...");
-      console.log("   Título:", payload.title);
-      console.log("   Cuerpo:", payload.body);
-      console.log("   Tag:", payload.tag);
+      console.log("   Payload enviado:", pushPayload.substring(0, 100) + "...");
 
-      const result = await webpush.sendNotification(subscription, JSON.stringify(payload));
+      const result = await webpush.sendNotification(subscription, pushPayload, {
+        TTL: 24 * 60 * 60, // 24 hours
+      });
 
       console.log("✅ [PUSH-SERVICE] Notificación enviada exitosamente:", payload.title);
       console.log("   Status Code:", result.statusCode);
@@ -160,7 +172,6 @@ export class PushNotificationService {
         console.error(`❌ [PUSH-SERVICE] ${i + 1}/${subscriptions.length} - Exception:`, error.message);
       }
 
-      // Small delay between requests to avoid rate limiting
       if (i < subscriptions.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -188,7 +199,6 @@ export class PushNotificationService {
 
     return successCount;
   }
-
   // Notification factory methods (unchanged)
   createPaymentValidatedNotification(ticketCode: string, amount: number): NotificationPayload {
     return {

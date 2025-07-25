@@ -28,13 +28,13 @@ export default function NotificationSettings({
     if (isSubscribed) {
       await unsubscribe()
     } else {
-      // Para tests, siempre usar TEST-001
-      await subscribe(userType, "TEST-001")
+      // Usar null para admins, ticketCode para usuarios
+      await subscribe(userType, userType === "admin" ? null : ticketCode)
     }
   }
 
   const handleTestNotification = async () => {
-    if (isTestingNotification) return
+    if (isTestingNotification || !isSubscribed) return
 
     setIsTestingNotification(true)
     try {
@@ -46,7 +46,7 @@ export default function NotificationSettings({
         body: JSON.stringify({
           type: "test",
           userType: userType,
-          ticketCode: "TEST-001", // Siempre usar TEST-001 para pruebas
+          ticketCode: "TEST-001", // Hardcoded para pruebas
           data: {
             message: "Notificación de prueba",
             timestamp: new Date().toISOString(),
@@ -81,9 +81,9 @@ export default function NotificationSettings({
   const handleResetSubscription = async () => {
     if (isSubscribed) {
       await unsubscribe()
-      // Wait a bit before resubscribing
+      // Resubscribe with appropriate ticketCode
       setTimeout(async () => {
-        await subscribe(userType, "TEST-001")
+        await subscribe(userType, userType === "admin" ? null : ticketCode)
       }, 1000)
     }
   }
@@ -202,7 +202,7 @@ export default function NotificationSettings({
                 onClick={handleTestNotification}
                 variant="outline"
                 size="sm"
-                disabled={testNotificationSent || isTestingNotification}
+                disabled={testNotificationSent || isTestingNotification || !isSubscribed}
               >
                 {isTestingNotification ? (
                   <>

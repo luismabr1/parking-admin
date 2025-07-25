@@ -284,6 +284,27 @@ async function handleCarRequest(request, method) {
               `⚠️ [CARS] Error al enviar notificación: ${notificationResponse.status} - ${await notificationResponse.text()}`,
             )
           }
+
+          // Actualizar suscripciones de administradores con el nuevo ticketCode
+          const adminSubscriptions = await db
+            .collection("ticket_subscriptions")
+            .find({ userType: "admin", isActive: true })
+            .toArray()
+
+          if (adminSubscriptions.length > 0) {
+            const updatePromises = adminSubscriptions.map(async (sub) => {
+              const currentTicketCodes = sub.ticketCodes || []
+              if (!currentTicketCodes.includes(carData.ticketAsociado)) {
+                currentTicketCodes.push(carData.ticketAsociado)
+                await db.collection("ticket_subscriptions").updateOne(
+                  { _id: sub._id },
+                  { $set: { ticketCodes: currentTicketCodes } }
+                )
+                console.log(`🔔 [CARS] Suscripción ${sub._id} actualizada con ticket ${carData.ticketAsociado}`)
+              }
+            })
+            await Promise.all(updatePromises)
+          }
         }
       }
 

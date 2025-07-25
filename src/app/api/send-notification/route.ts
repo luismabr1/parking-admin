@@ -29,34 +29,30 @@ export async function POST(request: Request) {
     let subscriptions = []
     let query: any = {}
 
-    // Construir query para buscar suscripciones
     if (type === "test") {
-      // Para tests, usar siempre TEST-001 independientemente del userType
       query = {
         ticketCode: "TEST-001",
         isActive: true,
       }
       console.log("🧪 [SEND-NOTIFICATION] Modo TEST - Buscando suscripciones para TEST-001")
     } else if (userType === "admin") {
-      // Para admins, buscar SOLO suscripciones reales de admin (no virtuales)
       query = {
         userType: "admin",
         isActive: true,
         $or: [
-          { isVirtual: { $exists: false } }, // Suscripciones reales (sin campo isVirtual)
-          { isVirtual: false }, // Suscripciones explícitamente marcadas como no virtuales
+          { isVirtual: { $exists: false } },
+          { isVirtual: false },
         ],
       }
       console.log("👨‍💼 [SEND-NOTIFICATION] Buscando suscripciones REALES de ADMIN")
     } else if (userType === "user" && ticketCode) {
-      // Para usuarios, buscar suscripciones específicas del ticket (reales, no placeholder)
       query = {
         ticketCode: ticketCode,
         userType: "user",
         isActive: true,
         $or: [
-          { isPlaceholder: { $exists: false } }, // Suscripciones reales (sin campo isPlaceholder)
-          { isPlaceholder: false }, // Suscripciones explícitamente marcadas como no placeholder
+          { isPlaceholder: { $exists: false } },
+          { isPlaceholder: false },
         ],
       }
       console.log("👤 [SEND-NOTIFICATION] Buscando suscripciones REALES de USER para ticket:", ticketCode)
@@ -67,70 +63,35 @@ export async function POST(request: Request) {
 
     console.log("🔍 [SEND-NOTIFICATION] Query de búsqueda:", JSON.stringify(query, null, 2))
 
-    // Buscar suscripciones
     const subscriptionDocs = await db.collection("ticket_subscriptions").find(query).toArray()
 
     console.log("📊 [SEND-NOTIFICATION] Resultados de búsqueda:")
     console.log("   Total encontradas:", subscriptionDocs.length)
 
-    // Debug detallado de las suscripciones encontradas
     subscriptionDocs.forEach((doc, index) => {
       console.log(`🔍 [SEND-NOTIFICATION] Suscripción ${index + 1}:`)
-      console.log(`   Ticket: ${doc.ticketCode}`)
+      console.log(`   _id: ${doc._id}`)
+      console.log(`   Ticket: ${doc.ticketCode || "undefined"}`)
       console.log(`   UserType: ${doc.userType}`)
       console.log(`   Active: ${doc.isActive}`)
       console.log(`   Virtual: ${doc.isVirtual}`)
       console.log(`   Placeholder: ${doc.isPlaceholder}`)
       console.log(`   Endpoint: ${doc.subscription?.endpoint?.substring(0, 50)}...`)
-      console.log(
-        `   Keys valid: ${!!(
-          doc.subscription?.keys?.p256dh &&
-            doc.subscription?.keys?.auth &&
-            doc.subscription.keys.p256dh !== "admin-virtual-key" &&
-            doc.subscription.keys.p256dh !== "user-placeholder-key"
-        )}`,
-      )
+      console.log(`   P256DH: ${doc.subscription?.keys?.p256dh?.substring(0, 20)}...`)
+      console.log(`   Auth: ${doc.subscription?.keys?.auth?.substring(0, 20)}...`)
     })
 
     if (subscriptionDocs.length === 0) {
       console.log("⚠️ [SEND-NOTIFICATION] No se encontraron suscripciones activas")
-      console.log("🔍 [SEND-NOTIFICATION] Verificando todas las suscripciones en la base de datos...")
-
-      // Debug: mostrar todas las suscripciones para el ticket específico
-      if (ticketCode) {
-        const ticketSubs = await db.collection("ticket_subscriptions").find({ ticketCode }).toArray()
-        console.log(`📋 [SEND-NOTIFICATION] Suscripciones para ticket ${ticketCode}:`)
-        ticketSubs.forEach((sub, index) => {
-          console.log(
-            `   ${index + 1}. UserType: ${sub.userType}, Active: ${sub.isActive}, Virtual: ${sub.isVirtual}, Placeholder: ${sub.isPlaceholder}`,
-          )
-        })
-      }
-
-      // Debug: mostrar todas las suscripciones de admin
-      if (userType === "admin") {
-        const adminSubs = await db.collection("ticket_subscriptions").find({ userType: "admin" }).toArray()
-        console.log("📋 [SEND-NOTIFICATION] Todas las suscripciones de ADMIN:")
-        adminSubs.forEach((sub, index) => {
-          console.log(
-            `   ${index + 1}. Ticket: ${sub.ticketCode}, Active: ${sub.isActive}, Virtual: ${sub.isVirtual}, Real: ${!sub.isVirtual}`,
-          )
-        })
-      }
-
       return NextResponse.json({
         success: true,
         message: "No hay suscripciones activas",
         sent: 0,
         total: 0,
         query: query,
-        debug: {
-          subscriptionsFound: subscriptionDocs.length,
-        },
       })
     }
 
-    // Extraer suscripciones push - SOLO suscripciones con keys reales
     subscriptions = subscriptionDocs
       .map((doc) => doc.subscription)
       .filter((sub) => {
@@ -138,8 +99,6 @@ export async function POST(request: Request) {
           console.log("❌ [SEND-NOTIFICATION] Suscripción sin endpoint o keys")
           return false
         }
-
-        // Verificar que las keys no sean hardcodeadas
         const hasRealKeys =
           sub.keys.p256dh &&
           sub.keys.auth &&
@@ -147,12 +106,10 @@ export async function POST(request: Request) {
           sub.keys.p256dh !== "user-placeholder-key" &&
           sub.keys.auth !== "admin-virtual-auth" &&
           sub.keys.auth !== "user-placeholder-auth"
-
         if (!hasRealKeys) {
           console.log("❌ [SEND-NOTIFICATION] Suscripción con keys hardcodeadas, omitiendo")
           return false
         }
-
         console.log("✅ [SEND-NOTIFICATION] Suscripción válida con keys reales")
         return true
       })
@@ -166,11 +123,19 @@ export async function POST(request: Request) {
         message: "No hay suscripciones válidas con keys reales",
         sent: 0,
         total: subscriptionDocs.length,
-        reason: "Todas las suscripciones encontradas tienen keys hardcodeadas o son virtuales/placeholder",
       })
     }
 
-    // Crear payload de notificación según el tipo
+    if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+      console.error("❌ [SEND-NOTIFICATION] Claves VAPID no configuradas correctamente")
+      console.error("   NEXT_PUBLIC_VAPID_PUBLIC_KEY:", process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ? "Definida" : "Indefinida")
+      console.error("   VAPID_PRIVATE_KEY:", process.env.VAPID_PRIVATE_KEY ? "Definida" : "Indefinida")
+      return NextResponse.json(
+        { error: "Claves VAPID no configuradas. Verifica el archivo .env" },
+        { status: 500 },
+      )
+    }
+
     let notificationPayload
 
     console.log("🎨 [SEND-NOTIFICATION] Creando payload de notificación para tipo:", type)
@@ -184,42 +149,33 @@ export async function POST(request: Request) {
           badge: "/icons/icon-72x72.png",
           tag: `test-${Date.now()}`,
           data: { type: "test", timestamp: new Date().toISOString(), ...data },
-          requireInteraction: true,
-          actions: [
-            {
-              action: "close",
-              title: "Cerrar",
-            },
-          ],
         }
         break
-
       case "vehicle_registered":
-        notificationPayload = pushNotificationService.createVehicleRegisteredNotification(
-          ticketCode,
-          data.plate || "N/A",
-        )
+        notificationPayload = {
+          title: "📝 Vehículo Registrado",
+          body: `Vehículo ${data.plate || "N/A"} registrado en el sistema. Ticket: ${ticketCode}`,
+          icon: "/icons/icon-192x192.png",
+          badge: "/icons/icon-72x72.png",
+          tag: `vehicle-registered-${ticketCode}`,
+          data: { type: "vehicle_registered", ticketCode, plate: data.plate, timestamp: data.timestamp },
+        }
         break
-
       case "payment_validated":
         notificationPayload = pushNotificationService.createPaymentValidatedNotification(ticketCode, data.amount || 0)
         break
-
       case "payment_rejected":
         notificationPayload = pushNotificationService.createPaymentRejectedNotification(
           ticketCode,
           data.reason || "Motivo no especificado",
         )
         break
-
       case "vehicle_parked":
         notificationPayload = pushNotificationService.createVehicleParkedNotification(ticketCode, data.plate || "N/A")
         break
-
       case "vehicle_exit":
         notificationPayload = pushNotificationService.createVehicleExitNotification(ticketCode, data.plate || "N/A")
         break
-
       case "vehicle_delivered":
         notificationPayload = pushNotificationService.createVehicleDeliveredNotification(
           ticketCode,
@@ -228,7 +184,6 @@ export async function POST(request: Request) {
           data.amount || 0,
         )
         break
-
       case "admin_payment":
         notificationPayload = pushNotificationService.createAdminPaymentNotification(
           ticketCode,
@@ -236,14 +191,12 @@ export async function POST(request: Request) {
           data.plate || "N/A",
         )
         break
-
       case "admin_exit_request":
         notificationPayload = pushNotificationService.createAdminExitRequestNotification(
           ticketCode,
           data.plate || "N/A",
         )
         break
-
       default:
         console.error("❌ [SEND-NOTIFICATION] Tipo de notificación no reconocido:", type)
         return NextResponse.json({ error: "Tipo de notificación no válido" }, { status: 400 })
@@ -253,33 +206,29 @@ export async function POST(request: Request) {
     console.log("   Título:", notificationPayload.title)
     console.log("   Cuerpo:", notificationPayload.body)
     console.log("   Tag:", notificationPayload.tag)
+    console.log("   VAPID Headers (antes de envío):", {
+      publicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.substring(0, 20) + "...",
+      privateKey: process.env.VAPID_PRIVATE_KEY?.substring(0, 20) + "...",
+    })
 
-    // Enviar notificaciones
     console.log("📤 [SEND-NOTIFICATION] Enviando notificaciones...")
     const sentCount = await pushNotificationService.sendToMultipleSubscriptions(subscriptions, notificationPayload)
 
-    console.log("📊 [SEND-NOTIFICATION] Resumen final:")
-    console.log("   Suscripciones encontradas:", subscriptionDocs.length)
-    console.log("   Suscripciones válidas:", subscriptions.length)
-    console.log("   Notificaciones enviadas:", sentCount)
-    console.log(
-      "   Tasa de éxito:",
-      subscriptions.length > 0 ? ((sentCount / subscriptions.length) * 100).toFixed(1) + "%" : "0%",
-    )
+    console.log("📤 [SEND-NOTIFICATION] Respuesta de envío:", {
+      sent: sentCount,
+      total: subscriptions.length,
+      successRate: subscriptions.length > 0 ? ((sentCount / subscriptions.length) * 100).toFixed(1) + "%" : "0%",
+    })
 
-    // Actualizar lastUsed para las suscripciones utilizadas
     if (sentCount > 0) {
       const subscriptionIds = subscriptionDocs.map((doc) => doc._id)
       await db.collection("ticket_subscriptions").updateMany(
         { _id: { $in: subscriptionIds } },
-        {
-          $set: {
-            lastUsed: new Date(),
-            "lifecycle.updatedAt": new Date(),
-          },
-        },
+        { $set: { lastUsed: new Date(), "lifecycle.updatedAt": new Date() } },
       )
       console.log("✅ [SEND-NOTIFICATION] Timestamps de suscripciones actualizados")
+    } else {
+      console.log("⚠️ [SEND-NOTIFICATION] No se enviaron notificaciones, no se actualizan timestamps")
     }
 
     console.log("✅ [SEND-NOTIFICATION] ===== ENVÍO COMPLETADO =====")
@@ -297,11 +246,17 @@ export async function POST(request: Request) {
     console.error("❌ [SEND-NOTIFICATION] ===== ERROR CRÍTICO =====")
     console.error("   Error:", error.message)
     console.error("   Stack:", error.stack)
+    if (error.name === "WebPushError" && error.statusCode) {
+      console.error("   Status Code:", error.statusCode)
+      console.error("   Body:", error.body)
+      console.error("   Headers:", error.headers)
+    }
 
     return NextResponse.json(
       {
         error: "Error interno del servidor",
         details: error instanceof Error ? error.message : "Error desconocido",
+        statusCode: error.statusCode,
       },
       { status: 500 },
     )
