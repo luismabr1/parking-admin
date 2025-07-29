@@ -1,3 +1,4 @@
+// src/app/admin/admin-login.tsx
 "use client"
 
 import type React from "react"
@@ -92,7 +93,12 @@ export default function AdminLogin() {
           </Button>
 
           <div className="text-center">
-            <Button type="button" variant="outline" onClick={handleQuickAccess} className="w-full h-12 text-lg">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleQuickAccess}
+              className="w-full h-12 text-lg bg-transparent"
+            >
               Acceso Rápido (Demo)
             </Button>
           </div>

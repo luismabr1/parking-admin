@@ -1,34 +1,26 @@
+// src/app/ClientLayout.tsx
 "use client"
 
-import type React from "react"
-
-import { useEffect } from "react"
+import * as React from "react"
+import { ThemeProvider } from "@/components/theme/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
 import PWAInstallPrompt from "@/components/notification/pwa-install-prompt"
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  useEffect(() => {
+export function ClientLayout({ children }: { children: React.ReactNode }) {
+  React.useEffect(() => {
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((registration) => {
-            console.log("Service Worker registered with scope:", registration.scope)
-          })
-          .catch((error) => {
-            console.error("Service Worker registration failed:", error)
-          })
-      })
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((registration) => console.log("Service Worker registered:", registration))
+        .catch((error) => console.error("Service Worker registration failed:", error))
     }
   }, [])
 
   return (
-    <>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
+      <Toaster />
       <PWAInstallPrompt />
-    </>
+    </ThemeProvider>
   )
 }

@@ -67,6 +67,9 @@
     color: hsl(var(--foreground));
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
+}
 }
 
 /* Critical CSS for offline functionality */
