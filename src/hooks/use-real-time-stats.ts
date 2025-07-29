@@ -36,24 +36,18 @@ const CACHE_KEY = "admin-dashboard-stats"
 const CACHE_TIMESTAMP_KEY = "admin-dashboard-stats-timestamp"
 const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
 
-// Helper functions for localStorage
 const getCachedStats = (): DashboardStats | null => {
   if (typeof window === "undefined") return null
-
   try {
     const cached = localStorage.getItem(CACHE_KEY)
     const timestamp = localStorage.getItem(CACHE_TIMESTAMP_KEY)
-
     if (!cached || !timestamp) return null
-
     const cacheAge = Date.now() - Number.parseInt(timestamp)
     if (cacheAge > CACHE_EXPIRY_MS) {
-      // Cache expired, remove it
       localStorage.removeItem(CACHE_KEY)
       localStorage.removeItem(CACHE_TIMESTAMP_KEY)
       return null
     }
-
     return JSON.parse(cached)
   } catch (error) {
     console.error("Error reading cached stats:", error)
@@ -63,7 +57,6 @@ const getCachedStats = (): DashboardStats | null => {
 
 const setCachedStats = (stats: DashboardStats) => {
   if (typeof window === "undefined") return
-
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(stats))
     localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString())
@@ -73,13 +66,8 @@ const setCachedStats = (stats: DashboardStats) => {
 }
 
 export function useRealTimeStats(): UseRealTimeStatsReturn {
-  // Initialize with cached stats if available
-  const [stats, setStats] = useState<DashboardStats>(() => {
-    const cached = getCachedStats()
-    return cached || initialStats
-  })
-
-  const [isLoading, setIsLoading] = useState(true)
+  const [stats, setStats] = useState<DashboardStats>(() => getCachedStats() || initialStats)
+  const [isLoading, setIsLoading] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
@@ -96,15 +84,19 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
       clearTimeout(reconnectTimeoutRef.current)
       reconnectTimeoutRef.current = null
     }
+    console.log("🔍 DEBUG: Cleanup executed")
   }, [])
 
   const updateStats = useCallback((newStats: DashboardStats) => {
     setStats(newStats)
-    setCachedStats(newStats) // Cache the new stats
+    setCachedStats(newStats)
     setError(null)
+    console.log("🔍 DEBUG: Stats updated:", newStats)
   }, [])
 
   const fetchInitialStats = useCallback(async () => {
+    console.log("🔍 DEBUG: Starting fetchInitialStats, isLoading:", isLoading)
+    setIsLoading(true)
     try {
       const response = await fetch(`/api/admin/stats?t=${Date.now()}`, {
         headers: {
@@ -113,33 +105,30 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
           Expires: "0",
         },
       })
-
       if (response.ok) {
         const data = await response.json()
         updateStats(data)
       } else {
-        throw new Error("Failed to fetch initial stats")
+        throw new Error(`Failed to fetch initial stats: ${response.statusText}`)
       }
     } catch (err) {
-      console.error("Error fetching initial stats:", err)
+      console.error("🔍 DEBUG: Error fetching initial stats:", err)
       setError(err instanceof Error ? err.message : "Error fetching stats")
-
-      // If we have cached stats, keep using them
       const cached = getCachedStats()
       if (cached) {
-        console.log("Using cached stats due to fetch error")
+        console.log("🔍 DEBUG: Using cached stats due to fetch error")
         setStats(cached)
       }
     } finally {
       setIsLoading(false)
+      console.log("🔍 DEBUG: fetchInitialStats completed, isLoading:", isLoading)
     }
   }, [updateStats])
 
   const connectEventSource = useCallback(() => {
-    if (eventSourceRef.current) {
-      cleanup()
-    }
-
+    cleanup()
+    setIsConnected(false)
+    console.log("🔍 DEBUG: Attempting to connect EventSource")
     try {
       const eventSource = new EventSource("/api/admin/stats-stream")
       eventSourceRef.current = eventSource
@@ -154,96 +143,91 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-
           if (data.heartbeat) {
-            // Just a heartbeat, don't update stats
+            console.log("🔍 DEBUG: Received heartbeat")
             return
           }
-
           if (data.error) {
-            console.error("SSE error:", data.error)
+            console.error("🔍 DEBUG: SSE error:", data.error)
             setError(data.error)
           } else {
             console.log("📊 Stats updated via SSE:", data)
             updateStats(data)
           }
         } catch (err) {
-          console.error("Error parsing SSE data:", err)
+          console.error("🔍 DEBUG: Error parsing SSE data:", err)
         }
       }
 
-      eventSource.onerror = (event) => {
-        console.error("📡 SSE connection error:", event)
+      eventSource.onerror = () => {
+        console.error("📡 SSE connection error")
         setIsConnected(false)
-
-        // Attempt to reconnect with exponential backoff
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-          const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000 // 1s, 2s, 4s, 8s, 16s
+          const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000
           console.log(
-            `🔄 Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`,
+            `🔄 Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`
           )
-
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current++
             connectEventSource()
           }, delay)
         } else {
           setError("Connection lost. Using cached data.")
-
-          // Keep using cached stats if available
           const cached = getCachedStats()
           if (cached) {
-            console.log("Using cached stats due to connection failure")
+            console.log("🔍 DEBUG: Using cached stats due to connection failure")
             setStats(cached)
           }
         }
       }
     } catch (err) {
-      console.error("Error creating EventSource:", err)
+      console.error("🔍 DEBUG: Error creating EventSource:", err)
       setError("Failed to establish real-time connection")
       setIsConnected(false)
-
-      // Use cached stats if available
       const cached = getCachedStats()
       if (cached) {
-        console.log("Using cached stats due to EventSource error")
+        console.log("🔍 DEBUG: Using cached stats due to EventSource error")
         setStats(cached)
       }
     }
   }, [cleanup, updateStats])
 
   const refetch = useCallback(async () => {
-    setIsLoading(true)
+    console.log("🔍 DEBUG: Manual refetch triggered")
     await fetchInitialStats()
   }, [fetchInitialStats])
 
   useEffect(() => {
-    // Check if we have cached stats
     const cached = getCachedStats()
     if (cached) {
-      console.log("📦 Using cached stats on mount")
       setStats(cached)
-      setIsLoading(false)
+      console.log("🔍 DEBUG: Using cached stats on mount")
     }
-
-    // Fetch initial stats (this will update cache if successful)
     fetchInitialStats()
-
-    // Connect to SSE for real-time updates
     connectEventSource()
-
-    // Cleanup on unmount
     return cleanup
   }, [fetchInitialStats, connectEventSource, cleanup])
 
-  // Fallback polling if SSE fails
   useEffect(() => {
-    if (!isConnected && !isLoading && reconnectAttemptsRef.current >= maxReconnectAttempts) {
+    if (!isConnected && reconnectAttemptsRef.current >= maxReconnectAttempts) {
       console.log("🔄 SSE failed, falling back to polling")
-      const interval = setInterval(fetchInitialStats, 30000)
+      const interval = setInterval(() => {
+        if (!isLoading) fetchInitialStats()
+      }, 30000)
       return () => clearInterval(interval)
     }
   }, [isConnected, isLoading, fetchInitialStats])
+
+  // Safeguard to ensure isLoading doesn't get stuck
+  useEffect(() => {
+    if (isLoading && isConnected && !error) {
+      const timer = setTimeout(() => {
+        console.log("🔍 DEBUG: isLoading stuck, forcing reset")
+        setIsLoading(false)
+      }, 5000) // Reset after 5 seconds if still loading with connection
+      return () => clearTimeout(timer)
+    }
+  }, [isLoading, isConnected, error])
 
   return {
     stats,

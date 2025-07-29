@@ -119,16 +119,16 @@ export default function PWAInstallPrompt() {
 
   console.log("PWAInstallPrompt: Rendering banner.")
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-md border-t border-border shadow-lg">
       <div className="max-w-md mx-auto p-4">
         <div className="flex items-center gap-3">
           <div className="flex-shrink-0 w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-            <Smartphone className="h-5 w-5 text-muted-foreground" />
+            <Smartphone className="h-5 w-5 text-foreground" />
           </div>
 
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground">{isIOS ? "Agregar a Inicio" : "Instalar App"}</p>
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-foreground/70 truncate">
               {isIOS ? "Toca Compartir → Agregar a pantalla de inicio" : "Acceso rápido y notificaciones"}
             </p>
           </div>
@@ -138,15 +138,20 @@ export default function PWAInstallPrompt() {
               <Button
                 onClick={handleInstallClick}
                 size="sm"
-                className="bg-transparent backdrop-blur-md border border-foreground/20 text-foreground hover:bg-foreground/10 text-xs px-3"
+                className="bg-foreground/10 backdrop-blur-md border border-foreground/30 text-foreground hover:bg-foreground/20 text-xs px-3"
               >
                 <Download className="h-3 w-3 mr-1" />
                 Instalar
               </Button>
             )}
 
-            <Button onClick={handleDismiss} variant="ghost" size="sm" className="p-1 h-8 w-8">
-              <X className="h-4 w-4" />
+            <Button
+              onClick={handleDismiss}
+              variant="ghost"
+              size="sm"
+              className="p-1 h-8 w-8 bg-transparent backdrop-blur-md border border-foreground/30 text-foreground hover:bg-foreground/10"
+            >
+              <X className="h-4 w-4 text-foreground" />
             </Button>
           </div>
         </div>
@@ -156,7 +161,7 @@ export default function PWAInstallPrompt() {
           onClick={handleDismissPermanently}
           variant="ghost"
           size="sm"
-          className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground underline bg-transparent backdrop-blur-md border border-transparent hover:border-foreground/10"
+          className="mt-2 w-full text-xs text-foreground/50 hover:text-foreground underline bg-transparent backdrop-blur-md border border-transparent hover:border-foreground/20"
         >
           No mostrar más
         </Button>

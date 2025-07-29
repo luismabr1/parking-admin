@@ -4,7 +4,15 @@ import { useState, useEffect, useMemo } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, ChevronDown, ChevronUp, Smartphone, MoreHorizontal, Wifi, WifiOff } from "lucide-react"
+import {
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  Smartphone,
+  MoreHorizontal,
+  Wifi,
+  WifiOff,
+} from "lucide-react"
 import PendingPayments from "../../components/admin/pending-payments"
 import StaffManagement from "../../components/admin/staff-management"
 import CompanySettings from "../../components/admin/company-settings"
@@ -19,7 +27,12 @@ import { useMobileDetection } from "@/hooks/use-mobile-detection"
 import { useRealTimeStats } from "@/hooks/use-real-time-stats"
 import React from "react"
 import NotificationSettings from "@/components/notification/notification-settings"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 function AdminDashboard() {
@@ -28,6 +41,16 @@ function AdminDashboard() {
   const isMobile = useMobileDetection()
   const [activeTab, setActiveTab] = useState("cars")
   const [visibleTabs, setVisibleTabs] = useState<string[]>([])
+
+  // Log state changes for debugging
+  useEffect(() => {
+    console.log(
+      "AdminDashboard State:",
+      { isLoading, isConnected, error },
+      "Stats:",
+      stats
+    )
+  }, [isLoading, isConnected, error, stats])
 
   const handleTabChange = (value: string) => {
     setActiveTab(value)
@@ -39,7 +62,6 @@ function AdminDashboard() {
     }
   }, [isMobile])
 
-  // Update visible tabs based on screen size
   useEffect(() => {
     const allTabs = [
       "confirmations",
@@ -85,7 +107,6 @@ function AdminDashboard() {
     return allTabs.filter((tab) => !visibleTabs.includes(tab))
   }, [visibleTabs])
 
-  // Connection status indicator
   const ConnectionStatus = () => (
     <div className="flex items-center gap-2">
       {isConnected ? (
@@ -112,8 +133,18 @@ function AdminDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <ConnectionStatus />
-            <Button onClick={refetch} variant="outline" size="sm" disabled={isLoading}>
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            <Button
+              onClick={() => {
+                console.log("Manual refresh triggered")
+                refetch()
+              }}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+              />
             </Button>
           </div>
         </div>
@@ -125,7 +156,10 @@ function AdminDashboard() {
         )}
 
         <Card className="border border-gray-200 dark:border-gray-700">
-          <CardHeader className="py-2 px-4 cursor-pointer" onClick={() => setShowStats(!showStats)}>
+          <CardHeader
+            className="py-2 px-4 cursor-pointer"
+            onClick={() => setShowStats(!showStats)}
+          >
             <div className="flex justify-between items-center">
               <CardTitle className="text-sm font-medium">
                 Estadísticas{" "}
@@ -158,13 +192,19 @@ function AdminDashboard() {
                 </div>
                 <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <span>Confirmaciones:</span>
-                  <Badge variant={stats.pendingConfirmations > 0 ? "destructive" : "outline"}>
+                  <Badge
+                    variant={stats.pendingConfirmations > 0 ? "destructive" : "outline"}
+                  >
                     {stats.pendingConfirmations}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <span>Pagos pendientes:</span>
-                  <Badge variant={stats.pendingPayments > 0 ? "destructive" : "outline"}>{stats.pendingPayments}</Badge>
+                  <Badge
+                    variant={stats.pendingPayments > 0 ? "destructive" : "outline"}
+                  >
+                    {stats.pendingPayments}
+                  </Badge>
                 </div>
               </div>
             </CardContent>
@@ -233,22 +273,40 @@ function AdminDashboard() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleTabChange("tickets")} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => handleTabChange("tickets")}
+                  className="cursor-pointer"
+                >
                   Espacios
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("qr")} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => handleTabChange("qr")}
+                  className="cursor-pointer"
+                >
                   QR
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("history")} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => handleTabChange("history")}
+                  className="cursor-pointer"
+                >
                   Historial
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("staff")} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => handleTabChange("staff")}
+                  className="cursor-pointer"
+                >
                   Personal
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("settings")} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => handleTabChange("settings")}
+                  className="cursor-pointer"
+                >
                   Config
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("notifications")} className="cursor-pointer">
+                <DropdownMenuItem
+                  onClick={() => handleTabChange("notifications")}
+                  className="cursor-pointer"
+                >
                   Notificaciones
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -294,13 +352,26 @@ function AdminDashboard() {
     <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Panel de Administración</h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300">Gestión completa del sistema de estacionamiento</p>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+            Panel de Administración
+          </h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300">
+            Gestión completa del sistema de estacionamiento
+          </p>
         </div>
         <div className="flex items-center gap-4">
           <ConnectionStatus />
-          <Button onClick={refetch} variant="outline" disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+          <Button
+            onClick={() => {
+              console.log("Manual refresh triggered")
+              refetch()
+            }}
+            variant="outline"
+            disabled={isLoading}
+          >
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+            />
             Actualizar
           </Button>
         </div>
@@ -501,7 +572,11 @@ function AdminDashboard() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {hiddenTabs.map((tab) => (
-                    <DropdownMenuItem key={tab} onClick={() => handleTabChange(tab)} className="cursor-pointer">
+                    <DropdownMenuItem
+                      key={tab}
+                      onClick={() => handleTabChange(tab)}
+                      className="cursor-pointer"
+                    >
                       {tab === "tickets" && "Espacios"}
                       {tab === "qr" && "QR"}
                       {tab === "history" && "Historial"}
@@ -539,9 +614,6 @@ function AdminDashboard() {
         </TabsContent>
         <TabsContent value="staff">
           <StaffManagement onStatsUpdate={() => {}} />
-        </TabsContent>
-        <TabsContent value="settings">
-          <CompanySettings />
         </TabsContent>
         <TabsContent value="notifications">
           <NotificationSettings userType="admin" />
