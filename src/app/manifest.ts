@@ -1,0 +1,116 @@
+import type { MetadataRoute } from "next"
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Parking PWA Client",
+    short_name: "Parking PWA",
+    description: "Aplicación cliente para la gestión de estacionamientos PWA",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#ffffff",
+    theme_color: "#000000",
+    orientation: "portrait",
+    scope: "/",
+    lang: "es",
+    categories: ["business", "productivity", "utilities"],
+    icons: [
+      {
+        src: "/logo.svg",
+        sizes: "72x72",
+        type: "image/svg+xml",
+        purpose: "maskable any",
+      },
+      {
+        src: "/logo.svg",
+        sizes: "96x96",
+        type: "image/svg+xml",
+        purpose: "maskable any",
+      },
+      {
+        src: "/logo.svg",
+        sizes: "128x128",
+        type: "image/svg+xml",
+        purpose: "maskable any",
+      },
+      {
+        src: "/logo.svg",
+        sizes: "144x144",
+        type: "image/svg+xml",
+        purpose: "maskable any",
+      },
+      {
+        src: "/logo.svg",
+        sizes: "152x152",
+        type: "image/svg+xml",
+        purpose: "maskable any",
+      },
+      {
+        src: "/logo.svg",
+        sizes: "192x192",
+        type: "image/svg+xml",
+        purpose: "any maskable",
+      },
+      {
+        src: "/logo.svg",
+        sizes: "384x384",
+        type: "image/svg+xml",
+        purpose: "maskable any",
+      },
+      {
+        src: "/logo.svg",
+        sizes: "512x512",
+        type: "image/svg+xml",
+        purpose: "any maskable",
+      },
+    ],
+    shortcuts: [
+      {
+        name: "Buscar Ticket",
+        short_name: "Buscar",
+        description: "Buscar un ticket de estacionamiento",
+        url: "/?action=search",
+        icons: [
+          {
+            src: "/logo.svg",
+            sizes: "96x96",
+            type: "image/svg+xml",
+          },
+        ],
+      },
+      {
+        name: "Panel Admin",
+        short_name: "Admin",
+        description: "Acceder al panel de administración",
+        url: "/admin",
+        icons: [
+          {
+            src: "/logo.svg",
+            sizes: "96x96",
+            type: "image/svg+xml",
+          },
+        ],
+      },
+    ],
+    screenshots: [
+      {
+        src: "/screenshot-desktop.svg",
+        sizes: "1280x800",
+        type: "image/svg+xml",
+        form_factor: "wide",
+        label: "Vista de escritorio de la aplicación",
+      },
+      {
+        src: "/screenshot-mobile.svg",
+        sizes: "640x1136",
+        type: "image/svg+xml",
+        form_factor: "narrow",
+        label: "Vista móvil de la aplicación",
+      },
+    ],
+    related_applications: [],
+    prefer_related_applications: false,
+    edge_side_panel: {
+      preferred_width: 400,
+    },
+  }
+}

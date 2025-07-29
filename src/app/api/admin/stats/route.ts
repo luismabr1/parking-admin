@@ -1,87 +1,220 @@
-import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
+import { NextResponse } from "next/server"
+import clientPromise from "@/lib/mongodb"
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
+export const dynamic = "force-dynamic"
 
 export async function GET() {
-  try {
-    const client = await clientPromise;
-    const db = client.db("parking");
+  const encoder = new TextEncoder()
+  const client = await clientPromise
+  const db = client.db("parking")
 
-    // Verificar existencia de colecciones
-    const collections = ["pagos", "tickets", "staff", "cars"];
-    const existingCollections = await db.listCollections().toArray();
-    const validCollections = collections.every((col) =>
-      existingCollections.some((c) => c.name === col)
-    );
-    if (!validCollections) {
-      throw new Error("Alguna colección requerida no existe");
-    }
+  const stream = new ReadableStream({
+    async start(controller) {
+      let isStreamActive = true
+      let isControllerClosed = false
+      let changeStream: any = null
+      let heartbeatInterval: NodeJS.Timeout | null = null
+      let lastActivityTime = Date.now()
+      const INACTIVITY_THRESHOLD = 5 * 60 * 1000 // 5 minutes in milliseconds
+      const THROTTLED_INTERVAL = 2 * 60 * 1000 // 2 minutes in milliseconds
+      let isThrottled = false
 
-    // Obtener estadísticas de pagos pendientes
-    const pendingPayments = await db.collection("pagos").countDocuments({
-      estado: "pendiente_validacion",
-    });
+      const safeEnqueue = (data: string) => {
+        if (!isControllerClosed && isStreamActive) {
+          try {
+            controller.enqueue(encoder.encode(data))
+            lastActivityTime = Date.now() // Update activity on successful send
+            return true
+          } catch (error) {
+            console.log("📡 Controller closed, stopping stream")
+            isControllerClosed = true
+            isStreamActive = false
+            cleanup()
+            return false
+          }
+        }
+        return false
+      }
 
-    // Obtener confirmaciones pendientes (ajustar estado si es necesario)
-    const pendingConfirmations = await db.collection("tickets").countDocuments({
-      estado: "ocupado", // Cambiar a estado correcto si aplica
-    });
+      const sendStats = async () => {
+        if (!isStreamActive || isControllerClosed) return
 
-    // Obtener total de personal
-    const totalStaff = await db.collection("staff").countDocuments();
+        try {
+          const stats = await calculateStats()
+          const data = `data: ${JSON.stringify(stats)}\n\n`
+          safeEnqueue(data)
+        } catch (error) {
+          console.error("Error calculating stats:", error)
+          const errorData = `data: ${JSON.stringify({ error: "Error calculating stats" })}\n\n`
+          safeEnqueue(errorData)
+        }
+      }
 
-    // Obtener pagos de hoy en UTC
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      const setupChangeStream = async () => {
+        try {
+          // Use a single Change Stream with a pipeline to monitor multiple collections
+          changeStream = db
+            .collection("tickets")
+            .watch(
+              [
+                { $match: { "ns.coll": { $in: ["tickets", "pagos", "cars", "staff"] } } },
+              ],
+              { fullDocument: "updateLookup" },
+            )
 
-    const todayPayments = await db.collection("pagos").countDocuments({
+          changeStream.on("change", async (change) => {
+            console.log(`🔍 Change detected: ${change.operationType} in ${change.ns.coll}`)
+            lastActivityTime = Date.now() // Update activity on change
+            if (isThrottled) {
+              // If throttled, wait for the next scheduled update
+              return
+            }
+            await sendStats()
+          })
+
+          changeStream.on("error", (error) => {
+            console.error("Change Stream error:", error)
+          })
+
+          // Send initial stats
+          await sendStats()
+
+          // Start heartbeat with activity-aware logic
+          heartbeatInterval = setInterval(() => {
+            const inactivityDuration = Date.now() - lastActivityTime
+            if (inactivityDuration > INACTIVITY_THRESHOLD && !isThrottled) {
+              console.log("📡 Switching to throttled mode due to inactivity")
+              isThrottled = true
+              clearInterval(heartbeatInterval)
+              heartbeatInterval = setInterval(throttledUpdate, THROTTLED_INTERVAL)
+              cleanupChangeStream() // Close Change Stream during inactivity
+            } else if (isStreamActive && !isControllerClosed) {
+              const heartbeat = `data: ${JSON.stringify({ heartbeat: true, timestamp: new Date().toISOString() })}\n\n`
+              const success = safeEnqueue(heartbeat)
+              if (!success) {
+                cleanup()
+              }
+            }
+          }, 30000) // 30-second heartbeat while active
+        } catch (error) {
+          console.error("Error setting up change stream:", error)
+          const errorData = `data: ${JSON.stringify({ error: "Failed to setup real-time monitoring" })}\n\n`
+          safeEnqueue(errorData)
+        }
+      }
+
+      const throttledUpdate = async () => {
+        if (!isStreamActive || isControllerClosed) return
+        await sendStats()
+        const inactivityDuration = Date.now() - lastActivityTime
+        if (inactivityDuration <= INACTIVITY_THRESHOLD) {
+          console.log("📡 Resuming normal mode due to activity")
+          isThrottled = false
+          clearInterval(heartbeatInterval)
+          heartbeatInterval = setInterval(() => {
+            if (isStreamActive && !isControllerClosed) {
+              const heartbeat = `data: ${JSON.stringify({ heartbeat: true, timestamp: new Date().toISOString() })}\n\n`
+              const success = safeEnqueue(heartbeat)
+              if (!success) cleanup()
+            }
+          }, 30000)
+          await setupChangeStream() // Reopen Change Stream
+        }
+      }
+
+      const cleanupChangeStream = () => {
+        if (changeStream) {
+          try {
+            changeStream.close()
+            changeStream = null
+          } catch (error) {
+            console.error("Error closing change stream:", error)
+          }
+        }
+      }
+
+      const cleanup = () => {
+        isStreamActive = false
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval)
+          heartbeatInterval = null
+        }
+        cleanupChangeStream()
+        if (!isControllerClosed) {
+          try {
+            controller.close()
+            isControllerClosed = true
+          } catch (error) {
+            // Controller already closed
+          }
+        }
+      }
+
+      await setupChangeStream()
+
+      return cleanup
+    },
+
+    cancel() {
+      console.log("📡 SSE stream cancelled by client")
+    },
+  })
+
+  return new NextResponse(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Cache-Control",
+    },
+  })
+}
+
+async function calculateStats() {
+  const client = await clientPromise
+  const db = client.db("parking")
+
+  const collections = ["pagos", "tickets", "staff", "cars"]
+  const existingCollections = await db.listCollections().toArray()
+  if (!collections.every((col) => existingCollections.some((c) => c.name === col))) {
+    throw new Error("Some required collections do not exist")
+  }
+
+  const [
+    pendingPayments,
+    pendingConfirmations,
+    totalStaff,
+    todayPayments,
+    totalTickets,
+    availableTickets,
+    carsParked,
+    paidTickets,
+  ] = await Promise.all([
+    db.collection("pagos").countDocuments({ estado: "pendiente_validacion" }),
+    db.collection("tickets").countDocuments({ estado: "ocupado" }),
+    db.collection("staff").countDocuments(),
+    db.collection("pagos").countDocuments({
       fechaPago: {
-        $gte: today,
-        $lt: tomorrow,
+        $gte: new Date(new Date().setUTCHours(0, 0, 0, 0)),
+        $lt: new Date(new Date().setUTCHours(0, 0, 0, 0) + 24 * 60 * 60 * 1000),
       },
-    });
+    }),
+    db.collection("tickets").countDocuments(),
+    db.collection("tickets").countDocuments({ estado: "disponible" }),
+    db.collection("cars").countDocuments({ estado: { $in: ["estacionado", "estacionado_confirmado", "pago_pendiente"] } }),
+    db.collection("tickets").countDocuments({ estado: "pagado_validado" }),
+  ])
 
-    // Obtener estadísticas de tickets
-    const totalTickets = await db.collection("tickets").countDocuments();
-    const availableTickets = await db.collection("tickets").countDocuments({
-      estado: "disponible",
-    });
-
-    // Obtener carros estacionados actualmente
-    const carsParked = await db.collection("cars").countDocuments({
-      estado: { $in: ["estacionado", "estacionado_confirmado", "pago_pendiente"] },
-    });
-    console.log("🔍 DEBUG: Cars parked count:", carsParked);
-
-    // Obtener tickets pagados listos para salir
-    const paidTickets = await db.collection("tickets").countDocuments({
-      estado: "pagado_validado",
-    });
-
-    const response = NextResponse.json({
-      pendingPayments,
-      pendingConfirmations,
-      totalStaff,
-      todayPayments,
-      totalTickets,
-      availableTickets,
-      carsParked,
-      paidTickets,
-    });
-
-    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    response.headers.set("Pragma", "no-cache");
-    response.headers.set("Expires", "0");
-    response.headers.set("Surrogate-Control", "no-store");
-
-    return response;
-  } catch (error) {
-    console.error("🔍 DEBUG: Error fetching stats:", error);
-    return NextResponse.json({ message: "Error al obtener estadísticas" }, { status: 500 });
+  return {
+    pendingPayments,
+    pendingConfirmations,
+    totalStaff,
+    todayPayments,
+    totalTickets,
+    availableTickets,
+    carsParked,
+    paidTickets,
+    timestamp: new Date().toISOString(),
   }
 }

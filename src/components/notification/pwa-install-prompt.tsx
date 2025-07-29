@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Download, X, Smartphone, Plus } from "lucide-react"
+import { X, Download, Smartphone } from "lucide-react"
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -12,28 +11,39 @@ interface BeforeInstallPromptEvent extends Event {
 
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false)
+  const [showBanner, setShowBanner] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
   useEffect(() => {
+    console.log("PWAInstallPrompt: useEffect running")
+
     // Detectar iOS
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
     setIsIOS(isIOSDevice)
+    console.log("PWAInstallPrompt: isIOSDevice =", isIOSDevice)
 
     // Check if app is already installed
     if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true)
+      console.log("PWAInstallPrompt: App is already installed (standalone mode).")
       return
     }
 
-    // Para iOS, mostrar instrucciones después de un delay
+    // Check if user has already dismissed the install prompt permanently
+    const hasBeenDismissed = localStorage.getItem("pwa-install-dismissed")
+    if (hasBeenDismissed) {
+      console.log("PWAInstallPrompt: Install prompt has been permanently dismissed.")
+      return
+    }
+
+    // For iOS, show banner after a delay
     if (isIOSDevice) {
+      console.log("PWAInstallPrompt: iOS device detected. Scheduling banner show.")
       const timer = setTimeout(() => {
-        if (!sessionStorage.getItem("pwa-install-dismissed-ios")) {
-          setShowInstallPrompt(true)
-        }
-      }, 3000)
+        setShowBanner(true)
+        console.log("PWAInstallPrompt: iOS banner shown after delay.")
+      }, 8000) // Show after 8 seconds
       return () => clearTimeout(timer)
     }
 
@@ -41,14 +51,18 @@ export default function PWAInstallPrompt() {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
-      setShowInstallPrompt(true)
+      console.log("PWAInstallPrompt: beforeinstallprompt event fired.")
+      // Show banner immediately when prompt is available
+      setShowBanner(true)
     }
 
     // Listen for app installed event
     const handleAppInstalled = () => {
       setIsInstalled(true)
-      setShowInstallPrompt(false)
+      setShowBanner(false)
       setDeferredPrompt(null)
+      localStorage.removeItem("pwa-install-dismissed")
+      console.log("PWAInstallPrompt: App installed event fired.")
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
@@ -61,113 +75,92 @@ export default function PWAInstallPrompt() {
   }, [])
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return
+    console.log("PWAInstallPrompt: Install button clicked.")
+    if (!deferredPrompt && !isIOS) {
+      console.log("PWAInstallPrompt: No deferredPrompt and not iOS. Cannot install.")
+      return
+    }
 
-    try {
-      await deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
+    if (deferredPrompt) {
+      try {
+        await deferredPrompt.prompt()
+        const { outcome } = await deferredPrompt.userChoice
 
-      if (outcome === "accepted") {
-        console.log("User accepted the install prompt")
-      } else {
-        console.log("User dismissed the install prompt")
+        if (outcome === "accepted") {
+          console.log("PWAInstallPrompt: User accepted the install prompt.")
+          setShowBanner(false)
+        } else {
+          console.log("PWAInstallPrompt: User dismissed the install prompt.")
+        }
+
+        setDeferredPrompt(null)
+      } catch (error) {
+        console.error("PWAInstallPrompt: Error during installation:", error)
       }
-
-      setDeferredPrompt(null)
-      setShowInstallPrompt(false)
-    } catch (error) {
-      console.error("Error during installation:", error)
     }
   }
 
   const handleDismiss = () => {
-    setShowInstallPrompt(false)
-    // Hide for this session
-    if (isIOS) {
-      sessionStorage.setItem("pwa-install-dismissed-ios", "true")
-    } else {
-      sessionStorage.setItem("pwa-install-dismissed", "true")
-    }
+    console.log("PWAInstallPrompt: Dismiss button clicked.")
+    setShowBanner(false)
   }
 
-  // Don't show if already installed or dismissed this session
-  if (isInstalled || !showInstallPrompt) {
+  const handleDismissPermanently = () => {
+    console.log("PWAInstallPrompt: Dismiss permanently button clicked.")
+    localStorage.setItem("pwa-install-dismissed", "true")
+    setShowBanner(false)
+  }
+
+  // Don't show if already installed or not ready
+  if (isInstalled || !showBanner) {
+    console.log("PWAInstallPrompt: Not showing banner. isInstalled:", isInstalled, "showBanner:", showBanner)
     return null
   }
 
+  console.log("PWAInstallPrompt: Rendering banner.")
   return (
-    <Card className="fixed bottom-4 left-4 right-4 z-50 shadow-2xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 md:left-auto md:right-4 md:w-96 animate-in slide-in-from-bottom-4">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2 text-blue-900">
-            <Smartphone className="h-6 w-6 text-blue-600" />
-            {isIOS ? "Agregar a Inicio" : "Instalar App"}
-          </CardTitle>
-          <Button variant="ghost" size="sm" onClick={handleDismiss} className="h-8 w-8 p-0 hover:bg-blue-100">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {isIOS ? (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-700 font-medium">Para instalar esta app en tu iPhone/iPad:</p>
-            <div className="space-y-2 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                  1
-                </span>
-                <span>
-                  Toca el botón <strong>Compartir</strong> en Safari
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                  2
-                </span>
-                <span>
-                  Selecciona <strong>"Agregar a pantalla de inicio"</strong>
-                </span>
-                <Plus className="h-4 w-4 text-blue-600" />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                  3
-                </span>
-                <span>
-                  Toca <strong>"Agregar"</strong> para confirmar
-                </span>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={handleDismiss} size="sm" className="flex-1 bg-transparent">
-                Entendido
-              </Button>
-            </div>
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border shadow-lg">
+      <div className="max-w-md mx-auto p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+            <Smartphone className="h-5 w-5 text-muted-foreground" />
           </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-700 font-medium">
-              Instala la app para acceso rápido y recibir notificaciones de tus pagos y vehículo.
+
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground">{isIOS ? "Agregar a Inicio" : "Instalar App"}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {isIOS ? "Toca Compartir → Agregar a pantalla de inicio" : "Acceso rápido y notificaciones"}
             </p>
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <p className="text-xs text-blue-800">
-                ✨ <strong>Beneficios:</strong> Acceso offline, notificaciones push, inicio rápido desde tu pantalla de
-                inicio
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleInstallClick} className="flex-1 bg-blue-600 hover:bg-blue-700" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Instalar Ahora
-              </Button>
-              <Button variant="outline" onClick={handleDismiss} size="sm" className="hover:bg-blue-50 bg-transparent">
-                Después
-              </Button>
-            </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          <div className="flex items-center gap-2">
+            {!isIOS && deferredPrompt && (
+              <Button
+                onClick={handleInstallClick}
+                size="sm"
+                className="bg-transparent backdrop-blur-md border border-foreground/20 text-foreground hover:bg-foreground/10 text-xs px-3"
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Instalar
+              </Button>
+            )}
+
+            <Button onClick={handleDismiss} variant="ghost" size="sm" className="p-1 h-8 w-8">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Botón discreto para no mostrar más */}
+        <Button
+          onClick={handleDismissPermanently}
+          variant="ghost"
+          size="sm"
+          className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground underline bg-transparent backdrop-blur-md border border-transparent hover:border-foreground/10"
+        >
+          No mostrar más
+        </Button>
+      </div>
+    </div>
   )
 }
