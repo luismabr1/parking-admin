@@ -42,14 +42,16 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("cars")
   const [visibleTabs, setVisibleTabs] = useState<string[]>([])
 
-  // Log state changes for debugging
+  // Log state changes for debugging only in development
   useEffect(() => {
-    console.log(
-      "AdminDashboard State:",
-      { isLoading, isConnected, error },
-      "Stats:",
-      stats
-    )
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        "AdminDashboard State:",
+        { isLoading, isConnected, error },
+        "Stats:",
+        stats
+      )
+    }
   }, [isLoading, isConnected, error, stats])
 
   const handleTabChange = (value: string) => {
@@ -135,7 +137,9 @@ function AdminDashboard() {
             <ConnectionStatus />
             <Button
               onClick={() => {
-                console.log("Manual refresh triggered")
+                if (process.env.NODE_ENV === "development") {
+                  console.log("Manual refresh triggered")
+                }
                 refetch()
               }}
               variant="outline"
@@ -363,7 +367,9 @@ function AdminDashboard() {
           <ConnectionStatus />
           <Button
             onClick={() => {
-              console.log("Manual refresh triggered")
+              if (process.env.NODE_ENV === "development") {
+                console.log("Manual refresh triggered")
+              }
               refetch()
             }}
             variant="outline"

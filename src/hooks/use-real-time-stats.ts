@@ -50,7 +50,9 @@ const getCachedStats = (): DashboardStats | null => {
     }
     return JSON.parse(cached)
   } catch (error) {
-    console.error("Error reading cached stats:", error)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error reading cached stats:", error)
+    }
     return null
   }
 }
@@ -61,7 +63,9 @@ const setCachedStats = (stats: DashboardStats) => {
     localStorage.setItem(CACHE_KEY, JSON.stringify(stats))
     localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString())
   } catch (error) {
-    console.error("Error caching stats:", error)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error caching stats:", error)
+    }
   }
 }
 
@@ -84,18 +88,24 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
       clearTimeout(reconnectTimeoutRef.current)
       reconnectTimeoutRef.current = null
     }
-    console.log("🔍 DEBUG: Cleanup executed")
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔍 DEBUG: Cleanup executed")
+    }
   }, [])
 
   const updateStats = useCallback((newStats: DashboardStats) => {
     setStats(newStats)
     setCachedStats(newStats)
     setError(null)
-    console.log("🔍 DEBUG: Stats updated:", newStats)
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔍 DEBUG: Stats updated:", newStats)
+    }
   }, [])
 
   const fetchInitialStats = useCallback(async () => {
-    console.log("🔍 DEBUG: Starting fetchInitialStats, isLoading:", isLoading)
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔍 DEBUG: Starting fetchInitialStats, isLoading:", isLoading)
+    }
     setIsLoading(true)
     try {
       const response = await fetch(`/api/admin/stats?t=${Date.now()}`, {
@@ -112,29 +122,39 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
         throw new Error(`Failed to fetch initial stats: ${response.statusText}`)
       }
     } catch (err) {
-      console.error("🔍 DEBUG: Error fetching initial stats:", err)
+      if (process.env.NODE_ENV === "development") {
+        console.error("🔍 DEBUG: Error fetching initial stats:", err)
+      }
       setError(err instanceof Error ? err.message : "Error fetching stats")
       const cached = getCachedStats()
       if (cached) {
-        console.log("🔍 DEBUG: Using cached stats due to fetch error")
+        if (process.env.NODE_ENV === "development") {
+          console.log("🔍 DEBUG: Using cached stats due to fetch error")
+        }
         setStats(cached)
       }
     } finally {
       setIsLoading(false)
-      console.log("🔍 DEBUG: fetchInitialStats completed, isLoading:", isLoading)
+      if (process.env.NODE_ENV === "development") {
+        console.log("🔍 DEBUG: fetchInitialStats completed, isLoading:", isLoading)
+      }
     }
   }, [updateStats])
 
   const connectEventSource = useCallback(() => {
     cleanup()
     setIsConnected(false)
-    console.log("🔍 DEBUG: Attempting to connect EventSource")
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔍 DEBUG: Attempting to connect EventSource")
+    }
     try {
       const eventSource = new EventSource("/api/admin/stats-stream")
       eventSourceRef.current = eventSource
 
       eventSource.onopen = () => {
-        console.log("📡 SSE connection opened")
+        if (process.env.NODE_ENV === "development") {
+          console.log("📡 SSE connection opened")
+        }
         setIsConnected(true)
         setError(null)
         reconnectAttemptsRef.current = 0
@@ -144,29 +164,41 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
         try {
           const data = JSON.parse(event.data)
           if (data.heartbeat) {
-            console.log("🔍 DEBUG: Received heartbeat")
+            if (process.env.NODE_ENV === "development") {
+              console.log("🔍 DEBUG: Received heartbeat")
+            }
             return
           }
           if (data.error) {
-            console.error("🔍 DEBUG: SSE error:", data.error)
+            if (process.env.NODE_ENV === "development") {
+              console.error("🔍 DEBUG: SSE error:", data.error)
+            }
             setError(data.error)
           } else {
-            console.log("📊 Stats updated via SSE:", data)
+            if (process.env.NODE_ENV === "development") {
+              console.log("📊 Stats updated via SSE:", data)
+            }
             updateStats(data)
           }
         } catch (err) {
-          console.error("🔍 DEBUG: Error parsing SSE data:", err)
+          if (process.env.NODE_ENV === "development") {
+            console.error("🔍 DEBUG: Error parsing SSE data:", err)
+          }
         }
       }
 
       eventSource.onerror = () => {
-        console.error("📡 SSE connection error")
+        if (process.env.NODE_ENV === "development") {
+          console.error("📡 SSE connection error")
+        }
         setIsConnected(false)
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000
-          console.log(
-            `🔄 Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`
-          )
+          if (process.env.NODE_ENV === "development") {
+            console.log(
+              `🔄 Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`
+            )
+          }
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current++
             connectEventSource()
@@ -175,25 +207,33 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
           setError("Connection lost. Using cached data.")
           const cached = getCachedStats()
           if (cached) {
-            console.log("🔍 DEBUG: Using cached stats due to connection failure")
+            if (process.env.NODE_ENV === "development") {
+              console.log("🔍 DEBUG: Using cached stats due to connection failure")
+            }
             setStats(cached)
           }
         }
       }
     } catch (err) {
-      console.error("🔍 DEBUG: Error creating EventSource:", err)
+      if (process.env.NODE_ENV === "development") {
+        console.error("🔍 DEBUG: Error creating EventSource:", err)
+      }
       setError("Failed to establish real-time connection")
       setIsConnected(false)
       const cached = getCachedStats()
       if (cached) {
-        console.log("🔍 DEBUG: Using cached stats due to EventSource error")
+        if (process.env.NODE_ENV === "development") {
+          console.log("🔍 DEBUG: Using cached stats due to EventSource error")
+        }
         setStats(cached)
       }
     }
   }, [cleanup, updateStats])
 
   const refetch = useCallback(async () => {
-    console.log("🔍 DEBUG: Manual refetch triggered")
+    if (process.env.NODE_ENV === "development") {
+      console.log("🔍 DEBUG: Manual refetch triggered")
+    }
     await fetchInitialStats()
   }, [fetchInitialStats])
 
@@ -201,7 +241,9 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
     const cached = getCachedStats()
     if (cached) {
       setStats(cached)
-      console.log("🔍 DEBUG: Using cached stats on mount")
+      if (process.env.NODE_ENV === "development") {
+        console.log("🔍 DEBUG: Using cached stats on mount")
+      }
     }
     fetchInitialStats()
     connectEventSource()
@@ -210,7 +252,9 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
 
   useEffect(() => {
     if (!isConnected && reconnectAttemptsRef.current >= maxReconnectAttempts) {
-      console.log("🔄 SSE failed, falling back to polling")
+      if (process.env.NODE_ENV === "development") {
+        console.log("🔄 SSE failed, falling back to polling")
+      }
       const interval = setInterval(() => {
         if (!isLoading) fetchInitialStats()
       }, 30000)
@@ -222,7 +266,9 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
   useEffect(() => {
     if (isLoading && isConnected && !error) {
       const timer = setTimeout(() => {
-        console.log("🔍 DEBUG: isLoading stuck, forcing reset")
+        if (process.env.NODE_ENV === "development") {
+          console.log("🔍 DEBUG: isLoading stuck, forcing reset")
+        }
         setIsLoading(false)
       }, 5000) // Reset after 5 seconds if still loading with connection
       return () => clearTimeout(timer)
