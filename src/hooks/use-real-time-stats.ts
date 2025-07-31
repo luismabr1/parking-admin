@@ -17,6 +17,7 @@ interface UseRealTimeStatsReturn {
   stats: DashboardStats
   isLoading: boolean
   isConnected: boolean
+  connectionStatus: "live" | "inactive" | "background"
   error: string | null
   refetch: () => Promise<void>
 }
@@ -35,6 +36,7 @@ const initialStats: DashboardStats = {
 const CACHE_KEY = "admin-dashboard-stats"
 const CACHE_TIMESTAMP_KEY = "admin-dashboard-stats-timestamp"
 const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
+const POLLING_INTERVAL_MS = 30000 // 30 seconds polling interval
 
 const getCachedStats = (): DashboardStats | null => {
   if (typeof window === "undefined") return null
@@ -73,20 +75,15 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
   const [stats, setStats] = useState<DashboardStats>(() => getCachedStats() || initialStats)
   const [isLoading, setIsLoading] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<"live" | "inactive" | "background">("background")
   const [error, setError] = useState<string | null>(null)
-  const eventSourceRef = useRef<EventSource | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const reconnectAttemptsRef = useRef(0)
-  const maxReconnectAttempts = 5
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const isTabActiveRef = useRef(true)
 
   const cleanup = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close()
-      eventSourceRef.current = null
-    }
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current)
-      reconnectTimeoutRef.current = null
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
     }
     if (process.env.NODE_ENV === "development") {
       console.log("🔍 DEBUG: Cleanup executed")
@@ -102,9 +99,9 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
     }
   }, [])
 
-  const fetchInitialStats = useCallback(async () => {
+  const fetchStats = useCallback(async () => {
     if (process.env.NODE_ENV === "development") {
-      console.log("🔍 DEBUG: Starting fetchInitialStats, isLoading:", isLoading)
+      console.log("🔍 DEBUG: Starting fetchStats, isLoading:", isLoading)
     }
     setIsLoading(true)
     try {
@@ -119,11 +116,11 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
         const data = await response.json()
         updateStats(data)
       } else {
-        throw new Error(`Failed to fetch initial stats: ${response.statusText}`)
+        throw new Error(`Failed to fetch stats: ${response.statusText}`)
       }
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
-        console.error("🔍 DEBUG: Error fetching initial stats:", err)
+        console.error("🔍 DEBUG: Error fetching stats:", err)
       }
       setError(err instanceof Error ? err.message : "Error fetching stats")
       const cached = getCachedStats()
@@ -136,106 +133,17 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
     } finally {
       setIsLoading(false)
       if (process.env.NODE_ENV === "development") {
-        console.log("🔍 DEBUG: fetchInitialStats completed, isLoading:", isLoading)
+        console.log("🔍 DEBUG: fetchStats completed, isLoading:", isLoading)
       }
     }
   }, [updateStats])
-
-  const connectEventSource = useCallback(() => {
-    cleanup()
-    setIsConnected(false)
-    if (process.env.NODE_ENV === "development") {
-      console.log("🔍 DEBUG: Attempting to connect EventSource")
-    }
-    try {
-      const eventSource = new EventSource("/api/admin/stats-stream")
-      eventSourceRef.current = eventSource
-
-      eventSource.onopen = () => {
-        if (process.env.NODE_ENV === "development") {
-          console.log("📡 SSE connection opened")
-        }
-        setIsConnected(true)
-        setError(null)
-        reconnectAttemptsRef.current = 0
-      }
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (data.heartbeat) {
-            if (process.env.NODE_ENV === "development") {
-              console.log("🔍 DEBUG: Received heartbeat")
-            }
-            return
-          }
-          if (data.error) {
-            if (process.env.NODE_ENV === "development") {
-              console.error("🔍 DEBUG: SSE error:", data.error)
-            }
-            setError(data.error)
-          } else {
-            if (process.env.NODE_ENV === "development") {
-              console.log("📊 Stats updated via SSE:", data)
-            }
-            updateStats(data)
-          }
-        } catch (err) {
-          if (process.env.NODE_ENV === "development") {
-            console.error("🔍 DEBUG: Error parsing SSE data:", err)
-          }
-        }
-      }
-
-      eventSource.onerror = () => {
-        if (process.env.NODE_ENV === "development") {
-          console.error("📡 SSE connection error")
-        }
-        setIsConnected(false)
-        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-          const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000
-          if (process.env.NODE_ENV === "development") {
-            console.log(
-              `🔄 Attempting to reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`
-            )
-          }
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttemptsRef.current++
-            connectEventSource()
-          }, delay)
-        } else {
-          setError("Connection lost. Using cached data.")
-          const cached = getCachedStats()
-          if (cached) {
-            if (process.env.NODE_ENV === "development") {
-              console.log("🔍 DEBUG: Using cached stats due to connection failure")
-            }
-            setStats(cached)
-          }
-        }
-      }
-    } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("🔍 DEBUG: Error creating EventSource:", err)
-      }
-      setError("Failed to establish real-time connection")
-      setIsConnected(false)
-      const cached = getCachedStats()
-      if (cached) {
-        if (process.env.NODE_ENV === "development") {
-          console.log("🔍 DEBUG: Using cached stats due to EventSource error")
-        }
-        setStats(cached)
-      }
-    }
-  }, [cleanup, updateStats])
 
   const refetch = useCallback(async () => {
     if (process.env.NODE_ENV === "development") {
       console.log("🔍 DEBUG: Manual refetch triggered")
     }
-    await fetchInitialStats()
-  }, [fetchInitialStats])
+    await fetchStats()
+  }, [fetchStats])
 
   useEffect(() => {
     const cached = getCachedStats()
@@ -245,40 +153,40 @@ export function useRealTimeStats(): UseRealTimeStatsReturn {
         console.log("🔍 DEBUG: Using cached stats on mount")
       }
     }
-    fetchInitialStats()
-    connectEventSource()
-    return cleanup
-  }, [fetchInitialStats, connectEventSource, cleanup])
-
-  useEffect(() => {
-    if (!isConnected && reconnectAttemptsRef.current >= maxReconnectAttempts) {
-      if (process.env.NODE_ENV === "development") {
-        console.log("🔄 SSE failed, falling back to polling")
+    fetchStats()
+    pollingIntervalRef.current = setInterval(() => {
+      if (isTabActiveRef.current) {
+        fetchStats()
       }
-      const interval = setInterval(() => {
-        if (!isLoading) fetchInitialStats()
-      }, 30000)
-      return () => clearInterval(interval)
-    }
-  }, [isConnected, isLoading, fetchInitialStats])
+    }, POLLING_INTERVAL_MS)
+    return cleanup
+  }, [fetchStats, cleanup])
 
-  // Safeguard to ensure isLoading doesn't get stuck
   useEffect(() => {
-    if (isLoading && isConnected && !error) {
-      const timer = setTimeout(() => {
+    const handleVisibility = () => {
+      isTabActiveRef.current = document.visibilityState === "visible"
+      if (!isTabActiveRef.current) {
         if (process.env.NODE_ENV === "development") {
-          console.log("🔍 DEBUG: isLoading stuck, forcing reset")
+          console.log("🔕 Tab inactive, pausing polling")
         }
-        setIsLoading(false)
-      }, 5000) // Reset after 5 seconds if still loading with connection
-      return () => clearTimeout(timer)
+        setConnectionStatus("background")
+      } else {
+        if (process.env.NODE_ENV === "development") {
+          console.log("🔔 Tab active, resuming polling")
+        }
+        setConnectionStatus("live")
+        fetchStats()
+      }
     }
-  }, [isLoading, isConnected, error])
+    document.addEventListener("visibilitychange", handleVisibility)
+    return () => document.removeEventListener("visibilitychange", handleVisibility)
+  }, [fetchStats])
 
   return {
     stats,
     isLoading,
     isConnected,
+    connectionStatus,
     error,
     refetch,
   }

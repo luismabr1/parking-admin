@@ -73,7 +73,11 @@ interface PendingParking {
   };
 }
 
-function ParkingConfirmation() {
+interface ParkingConfirmationProps {
+  onUpdate?: () => void;
+}
+
+function ParkingConfirmation({ onUpdate }: ParkingConfirmationProps) {
   const [pendingParkings, setPendingParkings] = useState<PendingParking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -275,6 +279,9 @@ function ParkingConfirmation() {
       if (response.ok) {
         setMessage(`✅ ${data.message || "Estacionamiento confirmado exitosamente"}`);
         await fetchPendingParkings(); // Refresh to remove confirmed parking
+        if (onUpdate) {
+          onUpdate();
+        }
         if (process.env.NODE_ENV === "development") {
           console.log("🔍 DEBUG confirmParking - Success, updated message and refetched");
         }

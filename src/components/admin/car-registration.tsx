@@ -58,6 +58,10 @@ interface CarFormData {
   nota: string
 }
 
+interface CarRegistrationProps {
+  onUpdate?: () => void
+}
+
 // Deep comparison for arrays
 const areArraysEqual = <T extends { _id: string }>(arr1: T[], arr2: T[]) => {
   if (arr1.length !== arr2.length) return false
@@ -67,7 +71,7 @@ const areArraysEqual = <T extends { _id: string }>(arr1: T[], arr2: T[]) => {
   })
 }
 
-function CarRegistration() {
+function CarRegistration({ onUpdate }: CarRegistrationProps) {
   const [cars, setCars] = useState<Car[]>([])
   const [availableTickets, setAvailableTickets] = useState<AvailableTicket[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -266,6 +270,9 @@ function CarRegistration() {
           })
           setCapturedImages(null)
           await Promise.all([fetchCars(), fetchAvailableTickets()])
+          if (onUpdate) {
+            onUpdate()
+          }
         } else {
           setMessage(`❌ ${data.message}`)
         }
@@ -277,7 +284,7 @@ function CarRegistration() {
         setIsSubmitting(false)
       }
     },
-    [formData, capturedImages, isMobile, fetchCars, fetchAvailableTickets],
+    [formData, capturedImages, isMobile, fetchCars, fetchAvailableTickets, onUpdate],
   )
 
   const isFormValid = useCallback(() => {
@@ -306,7 +313,10 @@ function CarRegistration() {
     setSelectedCarImages(null)
     setMessage("✅ Información del vehículo actualizada correctamente")
     setTimeout(() => setMessage(""), 3000)
-  }, [fetchCars])
+    if (onUpdate) {
+      onUpdate()
+    }
+  }, [fetchCars, onUpdate])
 
   if (process.env.NODE_ENV === "development") {
     console.log(

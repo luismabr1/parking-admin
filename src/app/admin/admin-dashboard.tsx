@@ -23,7 +23,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 function AdminDashboard() {
-  const { stats, isLoading, isConnected, error, refetch } = useRealTimeStats()
+  const { stats, isLoading, isConnected, connectionStatus, error, refetch } = useRealTimeStats()
   const [showStats, setShowStats] = useState(false)
   const isMobile = useMobileDetection()
   const [activeTab, setActiveTab] = useState("cars")
@@ -86,19 +86,33 @@ function AdminDashboard() {
 
   const ConnectionStatus = () => (
     <div className="flex items-center gap-2">
-      {isConnected ? (
+      {connectionStatus === "live" ? (
         <div className="flex items-center gap-1 text-green-600">
           <Wifi className="h-4 w-4" />
           <span className="text-xs">En vivo</span>
         </div>
+      ) : connectionStatus === "inactive" ? (
+        <div className="flex items-center gap-1 text-yellow-600">
+          <WifiOff className="h-4 w-4" />
+          <span className="text-xs">Inactivo</span>
+        </div>
       ) : (
         <div className="flex items-center gap-1 text-orange-600">
           <WifiOff className="h-4 w-4" />
-          <span className="text-xs">Desconectado</span>
+          <span className="text-xs">Segundo plano</span>
         </div>
       )}
     </div>
   )
+
+  const handleUpdate = () => {
+    setTimeout(() => {
+      refetch()
+      if (process.env.NODE_ENV === "development") {
+        console.log("📢 Stats updated after 1-2 seconds")
+      }
+    }, 1500) // 1.5 seconds delay
+  }
 
   if (isMobile) {
     return (
@@ -180,12 +194,14 @@ function AdminDashboard() {
             <TabsTrigger
               value="cars"
               className="py-2 px-4 text-sm relative flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary text-center"
+              onClick={handleUpdate}
             >
               <Smartphone className="h-3 w-3 mr-1" /> Registro
             </TabsTrigger>
             <TabsTrigger
               value="confirmations"
               className="py-2 px-4 text-sm relative flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary text-center"
+              onClick={handleUpdate}
             >
               Confirmar
               {stats.pendingConfirmations > 0 && (
@@ -200,6 +216,7 @@ function AdminDashboard() {
             <TabsTrigger
               value="payments"
               className="py-2 px-4 text-sm relative flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary text-center"
+              onClick={handleUpdate}
             >
               Pagos
               {stats.pendingPayments > 0 && (
@@ -214,6 +231,7 @@ function AdminDashboard() {
             <TabsTrigger
               value="exit"
               className="py-2 px-4 text-sm relative flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary text-center"
+              onClick={handleUpdate}
             >
               Salida
               {stats.paidTickets > 0 && (
@@ -260,34 +278,34 @@ function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="cars" className="m-0 overflow-hidden">
-            <CarRegistration />
+            <CarRegistration onUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="confirmations" className="m-0">
-            <ParkingConfirmation />
+            <ParkingConfirmation onUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="payments" className="m-0">
-            <PendingPayments onStatsUpdate={() => {}} />
+            <PendingPayments onStatsUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="exit" className="m-0">
-            <VehicleExit />
+            <VehicleExit onUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="tickets" className="m-0">
-            <TicketManagement />
+            <TicketManagement onUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="qr" className="m-0">
-            <QRGenerator />
+            <QRGenerator onUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="history" className="m-0">
-            <CarHistory />
+            <CarHistory onUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="staff" className="m-0">
-            <StaffManagement onStatsUpdate={() => {}} />
+            <StaffManagement onStatsUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="settings" className="m-0">
-            <CompanySettings />
+            <CompanySettings onUpdate={handleUpdate} />
           </TabsContent>
           <TabsContent value="notifications" className="m-0">
-            <NotificationSettings userType="admin" />
+            <NotificationSettings userType="admin" onUpdate={handleUpdate} />
           </TabsContent>
         </Tabs>
       </div>
@@ -451,6 +469,7 @@ function AdminDashboard() {
                 key={tab}
                 value={tab}
                 className="py-2 px-4 text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:font-semibold transition-all duration-200 ease-in-out flex-1 text-center"
+                onClick={handleUpdate}
               >
                 {tab === "confirmations" && (
                   <>
@@ -507,7 +526,10 @@ function AdminDashboard() {
                   {hiddenTabs.map((tab) => (
                     <DropdownMenuItem
                       key={tab}
-                      onClick={() => handleTabChange(tab)}
+                      onClick={() => {
+                        handleTabChange(tab)
+                        handleUpdate()
+                      }}
                       className="cursor-pointer"
                     >
                       {tab === "tickets" && "Espacios"}
@@ -525,31 +547,31 @@ function AdminDashboard() {
         </TabsList>
 
         <TabsContent value="confirmations">
-          <ParkingConfirmation />
+          <ParkingConfirmation onUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="payments">
-          <PendingPayments onStatsUpdate={() => {}} />
+          <PendingPayments onStatsUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="tickets">
-          <TicketManagement />
+          <TicketManagement onUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="cars">
-          <CarRegistration />
+          <CarRegistration onUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="exit">
-          <VehicleExit />
+          <VehicleExit onUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="qr">
-          <QRGenerator />
+          <QRGenerator onUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="history">
-          <CarHistory />
+          <CarHistory onUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="staff">
-          <StaffManagement onStatsUpdate={() => {}} />
+          <StaffManagement onStatsUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="notifications">
-          <NotificationSettings userType="admin" />
+          <NotificationSettings userType="admin" onUpdate={handleUpdate} />
         </TabsContent>
       </Tabs>
     </div>

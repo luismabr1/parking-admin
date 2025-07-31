@@ -151,7 +151,9 @@ export default function PWAInstallPrompt() {
               size="sm"
               className="p-1 h-8 w-8 bg-transparent backdrop-blur-md border border-foreground/30 text-foreground hover:bg-foreground/10"
             >
-              <X className="h-4 w-4 text-foreground" />
+              <X className="h-4 w-4 text-foreground" > 
+                X
+              </X>
             </Button>
           </div>
         </div>
