@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CarIcon, RefreshCw, Plus, Camera, Smartphone, Monitor, ImageIcon, Edit, Eye } from "lucide-react"
+import { CarIcon, RefreshCw, Plus, Camera, Smartphone, Monitor, ImageIcon, Edit, Eye } from 'lucide-react'
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime } from "@/lib/utils"
@@ -354,7 +354,7 @@ function CarRegistration({ onUpdate }: CarRegistrationProps) {
 
   if (isMobile) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4">
         <MobileStats />
         <Card className="border-2 border-blue-200">
           <CardHeader className="pb-4">
