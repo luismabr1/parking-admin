@@ -210,6 +210,11 @@ export async function POST(request: NextRequest) {
       // Log but don't fail the payment validation
     }
 
+    // Trigger stats update event
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("statsUpdate"))
+    }
+
     console.log("✅ [VALIDATE-PAYMENT] ===== VALIDACIÓN COMPLETADA EXITOSAMENTE =====")
     console.log("   Pago ID:", pagoId)
     console.log("   Ticket:", pago.codigoTicket)

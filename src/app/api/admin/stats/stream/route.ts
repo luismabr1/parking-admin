@@ -1,11 +1,32 @@
-import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 
-export const dynamic = "force-dynamic"
-export const fetchCache = "force-no-store"
-export const revalidate = 0
+// Simple event emitter for stats updates
+class StatsEventEmitter {
+  private listeners: Set<() => void> = new Set()
 
-export async function GET() {
+  addListener(callback: () => void) {
+    this.listeners.add(callback)
+  }
+
+  removeListener(callback: () => void) {
+    this.listeners.delete(callback)
+  }
+
+  emit() {
+    this.listeners.forEach((callback) => {
+      try {
+        callback()
+      } catch (error) {
+        console.error("Error in stats listener:", error)
+      }
+    })
+  }
+}
+
+const statsEmitter = new StatsEventEmitter()
+
+// Function to fetch current stats from database
+async function fetchCurrentStats() {
   try {
     const client = await clientPromise
     const db = client.db("parking")
@@ -23,9 +44,9 @@ export async function GET() {
       estado: "pendiente_validacion",
     })
 
-    // Obtener confirmaciones pendientes (ajustar estado si es necesario)
+    // Obtener confirmaciones pendientes
     const pendingConfirmations = await db.collection("tickets").countDocuments({
-      estado: "ocupado", // Cambiar a estado correcto si aplica
+      estado: "ocupado",
     })
 
     // Obtener total de personal
@@ -54,14 +75,13 @@ export async function GET() {
     const carsParked = await db.collection("cars").countDocuments({
       estado: { $in: ["estacionado", "estacionado_confirmado", "pago_pendiente"] },
     })
-    console.log("🔍 DEBUG: Cars parked count:", carsParked)
 
     // Obtener tickets pagados listos para salir
     const paidTickets = await db.collection("tickets").countDocuments({
       estado: "pagado_validado",
     })
 
-    const response = NextResponse.json({
+    return {
       pendingPayments,
       pendingConfirmations,
       totalStaff,
@@ -70,16 +90,30 @@ export async function GET() {
       availableTickets,
       carsParked,
       paidTickets,
-    })
-
-    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
-    response.headers.set("Pragma", "no-cache")
-    response.headers.set("Expires", "0")
-    response.headers.set("Surrogate-Control", "no-store")
-
-    return response
+    }
   } catch (error) {
-    console.error("🔍 DEBUG: Error fetching stats:", error)
-    return NextResponse.json({ message: "Error al obtener estadísticas" }, { status: 500 })
+    console.error("Error fetching stats:", error)
+    throw error
   }
 }
+
+// Function to broadcast stats update (called from other endpoints)
+export async function broadcastStatsUpdate() {
+  try {
+    if (process.env.NODE_ENV === "development") {
+      console.log("📊 Broadcasting stats update...")
+    }
+
+    // Emit event to trigger stats refresh in connected clients
+    statsEmitter.emit()
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("✅ Stats update broadcasted")
+    }
+  } catch (error) {
+    console.error("❌ Error broadcasting stats update:", error)
+  }
+}
+
+// Export the emitter for use in the hook
+export { statsEmitter, fetchCurrentStats }

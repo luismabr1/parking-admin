@@ -346,6 +346,11 @@ export async function POST(request: Request) {
       console.log(`✅ Ticket ${ticketCode} liberado, duración: ${duracionMinutos} minutos`)
     }
 
+    // Trigger stats update event
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("statsUpdate"))
+    }
+
     const response = NextResponse.json({
       message: "Salida registrada exitosamente",
       ticketCode,
