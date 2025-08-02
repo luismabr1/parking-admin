@@ -317,7 +317,7 @@ function AdminDashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Panel de Administración</h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300">Gestión completa del sistema de estacionamiento</p>
+          <p className="text-lg text-gray-600 dark:text-gray-600">Gestión completa del sistema de estacionamiento</p>
         </div>
         <div className="flex items-center gap-4">
           <ConnectionStatus />
