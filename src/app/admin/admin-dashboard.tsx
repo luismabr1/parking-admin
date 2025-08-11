@@ -461,9 +461,9 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 mb-6">
-        <TabsList className="grid grid-cols-1 gap-1 bg-muted/20 p-1 rounded-lg w-full">
-          <div className="flex flex-row w-full justify-start gap-1">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 mb-6 overflow-x-hidden">
+        <TabsList className="grid grid-cols-1 gap-1 bg-muted/20 p-1 rounded-lg w-full overflow-x-hidden">
+          <div className="flex flex-row w-full justify-start gap-1 overflow-x-hidden">
             {visibleTabs.map((tab) => (
               <TabsTrigger
                 key={tab}

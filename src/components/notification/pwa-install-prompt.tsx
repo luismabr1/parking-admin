@@ -1,68 +1,90 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { X, Download, Smartphone } from "lucide-react"
+import { useMobileDetection } from "@/hooks/use-mobile-detection"
 
 interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[]
+  readonly userChoice: Promise<{
+    outcome: "accepted" | "dismissed"
+    platform: string
+  }>
   prompt(): Promise<void>
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>
 }
 
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showBanner, setShowBanner] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
+  const [isStandalone, setIsStandalone] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
+  const isMobile = useMobileDetection()
 
   useEffect(() => {
-    console.log("PWAInstallPrompt: useEffect running")
-
-    // Detectar iOS
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
     setIsIOS(isIOSDevice)
-    console.log("PWAInstallPrompt: isIOSDevice =", isIOSDevice)
 
-    // Check if app is already installed
-    if (window.matchMedia("(display-mode: standalone)").matches) {
-      setIsInstalled(true)
-      console.log("PWAInstallPrompt: App is already installed (standalone mode).")
-      return
+    // Check if app is already installed or running in standalone mode
+    const checkInstallStatus = () => {
+      const isStandaloneMode = window.matchMedia("(display-mode: standalone)").matches
+      const isIOSStandalone = (window.navigator as any).standalone === true
+      const isInstalled = isStandaloneMode || isIOSStandalone
+
+      setIsStandalone(isStandaloneMode || isIOSStandalone)
+      setIsInstalled(isInstalled)
+
+      console.log("PWAInstallPrompt: Install status check:", {
+        isStandaloneMode,
+        isIOSStandalone,
+        isInstalled,
+      })
     }
 
-    // Check if user has already dismissed the install prompt permanently
+    checkInstallStatus()
+
     const hasBeenDismissed = localStorage.getItem("pwa-install-dismissed")
     if (hasBeenDismissed) {
       console.log("PWAInstallPrompt: Install prompt has been permanently dismissed.")
       return
     }
 
-    // For iOS, show banner after a delay
-    if (isIOSDevice) {
+    if (isIOSDevice && !isInstalled) {
       console.log("PWAInstallPrompt: iOS device detected. Scheduling banner show.")
       const timer = setTimeout(() => {
         setShowBanner(true)
         console.log("PWAInstallPrompt: iOS banner shown after delay.")
-      }, 8000) // Show after 8 seconds
+      }, 8000)
       return () => clearTimeout(timer)
     }
 
-    // Listen for the beforeinstallprompt event (Android/Chrome)
+    // Listen for beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
+      const promptEvent = e as BeforeInstallPromptEvent
+      console.log("PWAInstallPrompt: beforeinstallprompt event fired")
+
+      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault()
-      setDeferredPrompt(e as BeforeInstallPromptEvent)
-      console.log("PWAInstallPrompt: beforeinstallprompt event fired.")
-      // Show banner immediately when prompt is available
-      setShowBanner(true)
+
+      // Save the event so it can be triggered later
+      setDeferredPrompt(promptEvent)
+
+      // Show the install banner after a delay if not installed
+      if (!isInstalled) {
+        setTimeout(() => {
+          setShowBanner(true)
+          console.log("PWAInstallPrompt: Showing banner after delay")
+        }, 3000)
+      }
     }
 
-    // Listen for app installed event
+    // Listen for appinstalled event
     const handleAppInstalled = () => {
+      console.log("PWAInstallPrompt: App was installed")
       setIsInstalled(true)
       setShowBanner(false)
       setDeferredPrompt(null)
       localStorage.removeItem("pwa-install-dismissed")
-      console.log("PWAInstallPrompt: App installed event fired.")
     }
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
@@ -72,27 +94,34 @@ export default function PWAInstallPrompt() {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
       window.removeEventListener("appinstalled", handleAppInstalled)
     }
-  }, [])
+  }, [isInstalled])
 
   const handleInstallClick = async () => {
     console.log("PWAInstallPrompt: Install button clicked.")
     if (!deferredPrompt && !isIOS) {
-      console.log("PWAInstallPrompt: No deferredPrompt and not iOS. Cannot install.")
+      console.log("PWAInstallPrompt: No deferred prompt available")
       return
     }
 
     if (deferredPrompt) {
+      console.log("PWAInstallPrompt: Showing install prompt")
+
       try {
-        await deferredPrompt.prompt()
+        // Show the install prompt
+        deferredPrompt.prompt()
+
+        // Wait for the user to respond to the prompt
         const { outcome } = await deferredPrompt.userChoice
+        console.log("PWAInstallPrompt: User choice:", outcome)
 
         if (outcome === "accepted") {
-          console.log("PWAInstallPrompt: User accepted the install prompt.")
+          console.log("PWAInstallPrompt: User accepted the install prompt")
           setShowBanner(false)
         } else {
-          console.log("PWAInstallPrompt: User dismissed the install prompt.")
+          console.log("PWAInstallPrompt: User dismissed the install prompt")
         }
 
+        // Clear the deferred prompt
         setDeferredPrompt(null)
       } catch (error) {
         console.error("PWAInstallPrompt: Error during installation:", error)
@@ -101,7 +130,7 @@ export default function PWAInstallPrompt() {
   }
 
   const handleDismiss = () => {
-    console.log("PWAInstallPrompt: Dismiss button clicked.")
+    console.log("PWAInstallPrompt: Banner dismissed by user")
     setShowBanner(false)
   }
 
@@ -111,24 +140,87 @@ export default function PWAInstallPrompt() {
     setShowBanner(false)
   }
 
-  // Don't show if already installed or not ready
-  if (isInstalled || !showBanner) {
-    console.log("PWAInstallPrompt: Not showing banner. isInstalled:", isInstalled, "showBanner:", showBanner)
+  // Don't show anything if app is already installed or running in standalone mode
+  if (isInstalled || isStandalone) {
+    console.log("PWAInstallPrompt: Not showing banner. isInstalled:", isInstalled, "isStandalone:", isStandalone)
+    return null
+  }
+
+  // Don't show banner if conditions aren't met
+  if (!showBanner) {
+    console.log("PWAInstallPrompt: Not showing banner. showBanner:", showBanner, "deferredPrompt:", !!deferredPrompt)
     return null
   }
 
   console.log("PWAInstallPrompt: Rendering banner.")
+
+  if (isMobile) {
+    return (
+      <div className="fixed bottom-0 left-0 right-0 z-50 w-full max-w-full overflow-hidden">
+        <div className="w-full bg-background/90 backdrop-blur-md border-t border-border shadow-lg p-3">
+          <div className="space-y-3 w-full">
+            <div className="flex items-center gap-3 w-full">
+              <div className="flex-shrink-0 w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <Smartphone className="h-5 w-5 text-foreground" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {isIOS ? "Agregar a Inicio" : "Instalar App"}
+                </p>
+                <p className="text-xs text-foreground/70 break-words">
+                  {isIOS ? "Toca Compartir → Agregar a pantalla de inicio" : "Acceso rápido y notificaciones"}
+                </p>
+              </div>
+
+              <Button
+                onClick={handleDismiss}
+                variant="ghost"
+                size="sm"
+                className="p-1 h-8 w-8 flex-shrink-0 bg-transparent text-foreground hover:bg-foreground/10"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex gap-2 w-full">
+              {!isIOS && deferredPrompt && (
+                <Button
+                  onClick={handleInstallClick}
+                  size="sm"
+                  className="flex-1 bg-foreground/10 border border-foreground/30 text-foreground hover:bg-foreground/20 text-sm"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Instalar
+                </Button>
+              )}
+
+              <Button
+                onClick={handleDismissPermanently}
+                variant="ghost"
+                size="sm"
+                className="flex-1 text-xs text-foreground/50 hover:text-foreground bg-transparent border border-foreground/20 hover:border-foreground/30"
+              >
+                No mostrar más
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-md border-t border-border shadow-lg">
-      <div className="max-w-md mx-auto p-4">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-md border-t border-border shadow-lg p-4">
+      <div className="w-full max-w-md mx-auto">
         <div className="flex items-center gap-3">
           <div className="flex-shrink-0 w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
             <Smartphone className="h-5 w-5 text-foreground" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground">{isIOS ? "Agregar a Inicio" : "Instalar App"}</p>
-            <p className="text-xs text-foreground/70 truncate">
+            <p className="text-base font-medium text-foreground">{isIOS ? "Agregar a Inicio" : "Instalar App"}</p>
+            <p className="text-sm text-foreground/70">
               {isIOS ? "Toca Compartir → Agregar a pantalla de inicio" : "Acceso rápido y notificaciones"}
             </p>
           </div>
@@ -138,9 +230,9 @@ export default function PWAInstallPrompt() {
               <Button
                 onClick={handleInstallClick}
                 size="sm"
-                className="bg-foreground/10 backdrop-blur-md border border-foreground/30 text-foreground hover:bg-foreground/20 text-xs px-3"
+                className="bg-foreground/10 border border-foreground/30 text-foreground hover:bg-foreground/20"
               >
-                <Download className="h-3 w-3 mr-1" />
+                <Download className="h-4 w-4 mr-2" />
                 Instalar
               </Button>
             )}
@@ -149,21 +241,18 @@ export default function PWAInstallPrompt() {
               onClick={handleDismiss}
               variant="ghost"
               size="sm"
-              className="p-1 h-8 w-8 bg-transparent backdrop-blur-md border border-foreground/30 text-foreground hover:bg-foreground/10"
+              className="p-1 h-8 w-8 bg-transparent text-foreground hover:bg-foreground/10"
             >
-              <X className="h-4 w-4 text-foreground" > 
-                X
-              </X>
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Botón discreto para no mostrar más */}
         <Button
           onClick={handleDismissPermanently}
           variant="ghost"
           size="sm"
-          className="mt-2 w-full text-xs text-foreground/50 hover:text-foreground underline bg-transparent backdrop-blur-md border border-transparent hover:border-foreground/20"
+          className="mt-3 w-full text-sm text-foreground/50 hover:text-foreground underline bg-transparent"
         >
           No mostrar más
         </Button>

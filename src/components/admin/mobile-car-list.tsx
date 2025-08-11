@@ -202,303 +202,319 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
   const isFormDisabled = isSaving || isUploadingImage
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Carros Estacionados</h3>
-        <Button variant="outline" size="sm" onClick={onRefresh} disabled={isFormDisabled}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
+    <div className="w-full max-w-full overflow-hidden">
+      <div className="space-y-3 w-full">
+        <div className="flex items-center justify-between w-full">
+          <h3 className="text-lg font-semibold">Carros Estacionados</h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isFormDisabled}
+            className="flex-shrink-0 bg-transparent"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
 
-      {message && (
-        <Alert variant={messageType === "error" ? "destructive" : "default"}>
-          <div className="flex items-center">
-            {messageType === "success" ? (
-              <CheckCircle className="h-4 w-4 mr-2" />
-            ) : (
-              <AlertCircle className="h-4 w-4 mr-2" />
-            )}
-            <AlertDescription>{message}</AlertDescription>
-          </div>
-        </Alert>
-      )}
+        {message && (
+          <Alert variant={messageType === "error" ? "destructive" : "default"} className="w-full">
+            <div className="flex items-center">
+              {messageType === "success" ? (
+                <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+              )}
+              <AlertDescription className="break-words">{message}</AlertDescription>
+            </div>
+          </Alert>
+        )}
 
-      {cars.length === 0 ? (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Car className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">No hay carros estacionados</p>
-          </CardContent>
-        </Card>
-      ) : (
-        cars.map((car) => (
-          <Card key={car._id} className={editingId === car._id ? "ring-2 ring-blue-500" : ""}>
-            <CardContent className="p-4">
-              {editingId === car._id ? (
-                // Modo edición
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Car className="h-4 w-4" />
+        {cars.length === 0 ? (
+          <Card className="w-full">
+            <CardContent className="p-6 text-center">
+              <Car className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">No hay carros estacionados</p>
+            </CardContent>
+          </Card>
+        ) : (
+          cars.map((car) => (
+            <Card key={car._id} className={`w-full ${editingId === car._id ? "ring-2 ring-blue-500" : ""}`}>
+              <CardContent className="p-4 w-full">
+                {editingId === car._id ? (
+                  // Modo edición
+                  <div className="space-y-3 w-full">
+                    <div className="flex items-center justify-between mb-2 w-full">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Car className="h-4 w-4 flex-shrink-0" />
+                        <Input
+                          value={editForm.placa || ""}
+                          onChange={(e) => handleInputChange("placa", e.target.value)}
+                          className="h-8 w-24 text-sm font-semibold flex-shrink-0"
+                          placeholder="Placa"
+                          disabled={isFormDisabled}
+                        />
+                      </div>
+                      <div className="flex-shrink-0">{getStatusBadge(car.estado)}</div>
+                    </div>
+
+                    {/* Campo Nota - Primero */}
+                    <div className="w-full">
+                      <Label className="text-xs text-muted-foreground">Nota del Parquero</Label>
                       <Input
-                        value={editForm.placa || ""}
-                        onChange={(e) => handleInputChange("placa", e.target.value)}
-                        className="h-8 w-24 text-sm font-semibold"
-                        placeholder="Placa"
+                        value={editForm.nota || ""}
+                        onChange={(e) => handleInputChange("nota", e.target.value)}
+                        className="h-8 text-sm w-full"
+                        placeholder="Información adicional..."
                         disabled={isFormDisabled}
                       />
                     </div>
-                    {getStatusBadge(car.estado)}
-                  </div>
 
-                  {/* Campo Nota - Primero */}
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Nota del Parquero</Label>
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                      <Input
+                        value={editForm.marca || ""}
+                        onChange={(e) => handleInputChange("marca", e.target.value)}
+                        className="h-8 text-sm w-full"
+                        placeholder="Marca"
+                        disabled={isFormDisabled}
+                      />
+                      <Input
+                        value={editForm.modelo || ""}
+                        onChange={(e) => handleInputChange("modelo", e.target.value)}
+                        className="h-8 text-sm w-full"
+                        placeholder="Modelo"
+                        disabled={isFormDisabled}
+                      />
+                    </div>
+
                     <Input
-                      value={editForm.nota || ""}
-                      onChange={(e) => handleInputChange("nota", e.target.value)}
-                      className="h-8 text-sm"
-                      placeholder="Información adicional..."
+                      value={editForm.color || ""}
+                      onChange={(e) => handleInputChange("color", e.target.value)}
+                      className="h-8 text-sm w-full"
+                      placeholder="Color"
                       disabled={isFormDisabled}
                     />
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2">
                     <Input
-                      value={editForm.marca || ""}
-                      onChange={(e) => handleInputChange("marca", e.target.value)}
-                      className="h-8 text-sm"
-                      placeholder="Marca"
+                      value={editForm.nombreDueño || ""}
+                      onChange={(e) => handleInputChange("nombreDueño", e.target.value)}
+                      className="h-8 text-sm w-full"
+                      placeholder="Nombre del dueño"
                       disabled={isFormDisabled}
                     />
+
                     <Input
-                      value={editForm.modelo || ""}
-                      onChange={(e) => handleInputChange("modelo", e.target.value)}
-                      className="h-8 text-sm"
-                      placeholder="Modelo"
+                      value={editForm.telefono || ""}
+                      onChange={(e) => handleInputChange("telefono", e.target.value)}
+                      className="h-8 text-sm w-full"
+                      placeholder="Teléfono"
                       disabled={isFormDisabled}
                     />
-                  </div>
 
-                  <Input
-                    value={editForm.color || ""}
-                    onChange={(e) => handleInputChange("color", e.target.value)}
-                    className="h-8 text-sm"
-                    placeholder="Color"
-                    disabled={isFormDisabled}
-                  />
+                    {/* Sección de imágenes */}
+                    <div className="space-y-3 pt-2 border-t w-full">
+                      <Label className="text-sm font-medium">Imágenes</Label>
 
-                  <Input
-                    value={editForm.nombreDueño || ""}
-                    onChange={(e) => handleInputChange("nombreDueño", e.target.value)}
-                    className="h-8 text-sm"
-                    placeholder="Nombre del dueño"
-                    disabled={isFormDisabled}
-                  />
+                      {/* Imágenes existentes */}
+                      {(car.imagenes?.plateImageUrl || car.imagenes?.vehicleImageUrl) && (
+                        <div className="grid grid-cols-2 gap-2 w-full">
+                          {car.imagenes?.plateImageUrl && (
+                            <div className="min-w-0">
+                              <Label className="text-xs text-muted-foreground">Placa Actual</Label>
+                              <ImageWithFallback
+                                src={car.imagenes.plateImageUrl || "/placeholder.svg"}
+                                alt="Placa actual"
+                                className="w-full h-20 object-cover rounded border"
+                                fallback="/placeholder.svg"
+                              />
+                            </div>
+                          )}
+                          {car.imagenes?.vehicleImageUrl && (
+                            <div className="min-w-0">
+                              <Label className="text-xs text-muted-foreground">Vehículo Actual</Label>
+                              <ImageWithFallback
+                                src={car.imagenes.vehicleImageUrl || "/placeholder.svg"}
+                                alt="Vehículo actual"
+                                className="w-full h-20 object-cover rounded border"
+                                fallback="/placeholder.svg"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                  <Input
-                    value={editForm.telefono || ""}
-                    onChange={(e) => handleInputChange("telefono", e.target.value)}
-                    className="h-8 text-sm"
-                    placeholder="Teléfono"
-                    disabled={isFormDisabled}
-                  />
+                      {/* Nuevas imágenes capturadas */}
+                      {(capturedImages.plate || capturedImages.vehicle) && (
+                        <div className="grid grid-cols-2 gap-2 w-full">
+                          {capturedImages.plate && (
+                            <div className="min-w-0">
+                              <Label className="text-xs text-green-600">Nueva Placa</Label>
+                              <ImageWithFallback
+                                src={capturedImages.plate || "/placeholder.svg"}
+                                alt="Nueva placa"
+                                className="w-full h-20 object-cover rounded border border-green-500"
+                                fallback="/placeholder.svg"
+                              />
+                            </div>
+                          )}
+                          {capturedImages.vehicle && (
+                            <div className="min-w-0">
+                              <Label className="text-xs text-green-600">Nuevo Vehículo</Label>
+                              <ImageWithFallback
+                                src={capturedImages.vehicle || "/placeholder.svg"}
+                                alt="Nuevo vehículo"
+                                className="w-full h-20 object-cover rounded border border-green-500"
+                                fallback="/placeholder.svg"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                  {/* Sección de imágenes */}
-                  <div className="space-y-3 pt-2 border-t">
-                    <Label className="text-sm font-medium">Imágenes</Label>
-
-                    {/* Imágenes existentes */}
-                    {(car.imagenes?.plateImageUrl || car.imagenes?.vehicleImageUrl) && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {car.imagenes?.plateImageUrl && (
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Placa Actual</Label>
-                            <ImageWithFallback
-                              src={car.imagenes.plateImageUrl || "/placeholder.svg"}
-                              alt="Placa actual"
-                              className="w-full h-20 object-cover rounded border"
-                              fallback="/placeholder.svg"
-                            />
-                          </div>
-                        )}
-                        {car.imagenes?.vehicleImageUrl && (
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Vehículo Actual</Label>
-                            <ImageWithFallback
-                              src={car.imagenes.vehicleImageUrl || "/placeholder.svg"}
-                              alt="Vehículo actual"
-                              className="w-full h-20 object-cover rounded border"
-                              fallback="/placeholder.svg"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Nuevas imágenes capturadas */}
-                    {(capturedImages.plate || capturedImages.vehicle) && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {capturedImages.plate && (
-                          <div>
-                            <Label className="text-xs text-green-600">Nueva Placa</Label>
-                            <ImageWithFallback
-                              src={capturedImages.plate || "/placeholder.svg"}
-                              alt="Nueva placa"
-                              className="w-full h-20 object-cover rounded border border-green-500"
-                              fallback="/placeholder.svg"
-                            />
-                          </div>
-                        )}
-                        {capturedImages.vehicle && (
-                          <div>
-                            <Label className="text-xs text-green-600">Nuevo Vehículo</Label>
-                            <ImageWithFallback
-                              src={capturedImages.vehicle || "/placeholder.svg"}
-                              alt="Nuevo vehículo"
-                              className="w-full h-20 object-cover rounded border border-green-500"
-                              fallback="/placeholder.svg"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Botones para subir imágenes */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <input
-                          ref={plateFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleFileUpload(e, "plate")}
-                          className="hidden"
-                          disabled={isFormDisabled}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => plateFileInputRef.current?.click()}
-                          className="w-full h-8 text-xs"
-                          disabled={isFormDisabled}
-                        >
-                          <Camera className="h-3 w-3 mr-1" />
-                          {capturedImages.plate ? "Cambiar Placa" : "Foto Placa"}
-                        </Button>
-                      </div>
-                      <div>
-                        <input
-                          ref={vehicleFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleFileUpload(e, "vehicle")}
-                          className="hidden"
-                          disabled={isFormDisabled}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => vehicleFileInputRef.current?.click()}
-                          className="w-full h-8 text-xs"
-                          disabled={isFormDisabled}
-                        >
-                          <ImageIcon className="h-3 w-3 mr-1" />
-                          {capturedImages.vehicle ? "Cambiar Vehículo" : "Foto Vehículo"}
-                        </Button>
+                      {/* Botones para subir imágenes */}
+                      <div className="grid grid-cols-2 gap-2 w-full">
+                        <div className="min-w-0">
+                          <input
+                            ref={plateFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, "plate")}
+                            className="hidden"
+                            disabled={isFormDisabled}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => plateFileInputRef.current?.click()}
+                            className="w-full h-8 text-xs"
+                            disabled={isFormDisabled}
+                          >
+                            <Camera className="h-3 w-3 mr-1 flex-shrink-0" />
+                            <span className="truncate">{capturedImages.plate ? "Cambiar Placa" : "Foto Placa"}</span>
+                          </Button>
+                        </div>
+                        <div className="min-w-0">
+                          <input
+                            ref={vehicleFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, "vehicle")}
+                            className="hidden"
+                            disabled={isFormDisabled}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => vehicleFileInputRef.current?.click()}
+                            className="w-full h-8 text-xs"
+                            disabled={isFormDisabled}
+                          >
+                            <ImageIcon className="h-3 w-3 mr-1 flex-shrink-0" />
+                            <span className="truncate">
+                              {capturedImages.vehicle ? "Cambiar Vehículo" : "Foto Vehículo"}
+                            </span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>Ingreso: {car.horaIngreso ? formatDateTime(car.horaIngreso) : "Sin fecha"}</span>
-                    </div>
-                    <p>Ticket: {car.ticketAsociado}</p>
-                  </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <Button size="sm" onClick={handleSaveEdit} disabled={isFormDisabled} className="flex-1">
-                      <Check className="h-4 w-4 mr-1" />
-                      {isSaving ? "Guardando..." : isUploadingImage ? "Subiendo..." : "Guardar"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleCancelEdit}
-                      disabled={isFormDisabled}
-                      className="flex-1 bg-transparent"
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                // Modo visualización
-                <div onClick={() => handleEditClick(car)} className="cursor-pointer">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Car className="h-4 w-4" />
-                      <span className="font-semibold">{car.placa}</span>
-                      <Edit3 className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                    {getStatusBadge(car.estado)}
-                  </div>
-
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    {car.nota && (
-                      <div className="mb-2 p-2 bg-pink-50 rounded text-sm">
-                        <span className="text-pink-600 font-medium">📝 {car.nota}</span>
+                    <div className="text-sm text-muted-foreground space-y-1 w-full">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 flex-shrink-0" />
+                        <span className="break-words">
+                          Ingreso: {car.horaIngreso ? formatDateTime(car.horaIngreso) : "Sin fecha"}
+                        </span>
                       </div>
-                    )}
-                    <p>
-                      {car.marca} {car.modelo} - {car.color}
-                    </p>
-                    {car.nombreDueño && <p>Dueño: {car.nombreDueño}</p>}
-                    {car.telefono && <p>Teléfono: {car.telefono}</p>}
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>Ingreso: {car.horaIngreso ? formatDateTime(car.horaIngreso) : "Sin fecha"}</span>
+                      <p className="break-words">Ticket: {car.ticketAsociado}</p>
                     </div>
-                    <p>Ticket: {car.ticketAsociado}</p>
 
-                    {/* Vista previa de imágenes en la lista */}
-                    {(car.imagenes?.plateImageUrl || car.imagenes?.vehicleImageUrl) && (
-                      <div className="flex gap-2 mt-2 pt-2 border-t">
-                        {car.imagenes?.plateImageUrl && (
-                          <div className="flex-1">
-                            <ImageWithFallback
-                              src={car.imagenes.plateImageUrl || "/placeholder.svg"}
-                              alt="Placa"
-                              className="w-full h-16 object-cover rounded border"
-                              fallback="/placeholder.svg"
-                            />
-                            <p className="text-xs text-center mt-1 text-gray-500">Placa</p>
-                          </div>
-                        )}
-                        {car.imagenes?.vehicleImageUrl && (
-                          <div className="flex-1">
-                            <ImageWithFallback
-                              src={car.imagenes.vehicleImageUrl || "/placeholder.svg"}
-                              alt="Vehículo"
-                              className="w-full h-16 object-cover rounded border"
-                              fallback="/placeholder.svg"
-                            />
-                            <p className="text-xs text-center mt-1 text-gray-500">Vehículo</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex gap-2 pt-2 w-full">
+                      <Button size="sm" onClick={handleSaveEdit} disabled={isFormDisabled} className="flex-1">
+                        <Check className="h-4 w-4 mr-1 flex-shrink-0" />
+                        <span className="truncate">
+                          {isSaving ? "Guardando..." : isUploadingImage ? "Subiendo..." : "Guardar"}
+                        </span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelEdit}
+                        disabled={isFormDisabled}
+                        className="flex-1 bg-transparent"
+                      >
+                        <X className="h-4 w-4 mr-1 flex-shrink-0" />
+                        <span className="truncate">Cancelar</span>
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))
-      )}
+                ) : (
+                  // Modo visualización
+                  <div onClick={() => handleEditClick(car)} className="cursor-pointer w-full">
+                    <div className="flex items-center justify-between mb-2 w-full">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Car className="h-4 w-4 flex-shrink-0" />
+                        <span className="font-semibold break-words">{car.placa}</span>
+                        <Edit3 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      </div>
+                      <div className="flex-shrink-0">{getStatusBadge(car.estado)}</div>
+                    </div>
+
+                    <div className="text-sm text-muted-foreground space-y-1 w-full">
+                      {car.nota && (
+                        <div className="mb-2 p-2 bg-pink-50 rounded text-sm w-full">
+                          <span className="text-pink-600 font-medium break-words">📝 {car.nota}</span>
+                        </div>
+                      )}
+                      <p className="break-words">
+                        {car.marca} {car.modelo} - {car.color}
+                      </p>
+                      {car.nombreDueño && <p className="break-words">Dueño: {car.nombreDueño}</p>}
+                      {car.telefono && <p className="break-words">Teléfono: {car.telefono}</p>}
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 flex-shrink-0" />
+                        <span className="break-words">
+                          Ingreso: {car.horaIngreso ? formatDateTime(car.horaIngreso) : "Sin fecha"}
+                        </span>
+                      </div>
+                      <p className="break-words">Ticket: {car.ticketAsociado}</p>
+
+                      {/* Vista previa de imágenes en la lista */}
+                      {(car.imagenes?.plateImageUrl || car.imagenes?.vehicleImageUrl) && (
+                        <div className="flex gap-2 mt-2 pt-2 border-t w-full">
+                          {car.imagenes?.plateImageUrl && (
+                            <div className="flex-1 min-w-0">
+                              <ImageWithFallback
+                                src={car.imagenes.plateImageUrl || "/placeholder.svg"}
+                                alt="Placa"
+                                className="w-full h-16 object-cover rounded border"
+                                fallback="/placeholder.svg"
+                              />
+                              <p className="text-xs text-center mt-1 text-gray-500">Placa</p>
+                            </div>
+                          )}
+                          {car.imagenes?.vehicleImageUrl && (
+                            <div className="flex-1 min-w-0">
+                              <ImageWithFallback
+                                src={car.imagenes.vehicleImageUrl || "/placeholder.svg"}
+                                alt="Vehículo"
+                                className="w-full h-16 object-cover rounded border"
+                                fallback="/placeholder.svg"
+                              />
+                              <p className="text-xs text-center mt-1 text-gray-500">Vehículo</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   )
 }

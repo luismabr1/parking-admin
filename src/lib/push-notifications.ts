@@ -365,6 +365,29 @@ export class PushNotificationService {
       ],
     }
   }
+
+  createPaymentReceivedNotification(ticketCode: string, amount: number, plate: string, paymentType: string): NotificationPayload {
+    return {
+      title: "💰 Nuevo Pago Recibido",
+      body: `Pago de Bs. ${amount.toFixed(2)} recibido para el vehículo ${plate} (${ticketCode}) vía ${paymentType}. Requiere validación.`,
+      icon: "/icons/icon-192x192.png",
+      badge: "/icons/icon-72x72.png",
+      tag: `payment-received-${ticketCode}`,
+      data: { ticketCode, type: "payment_received", amount, plate, paymentType },
+      url: "/admin/dashboard",
+      requireInteraction: true,
+      actions: [
+        {
+          action: "validate",
+          title: "Validar Pago",
+        },
+        {
+          action: "view",
+          title: "Ver Detalles",
+        },
+      ],
+    };
+  }
 }
 
 export const pushNotificationService = PushNotificationService.getInstance()

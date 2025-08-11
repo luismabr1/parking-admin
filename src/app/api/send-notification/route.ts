@@ -197,6 +197,14 @@ export async function POST(request: Request) {
           data.plate || "N/A",
         )
         break
+      case "payment_received":
+        notificationPayload = pushNotificationService.createPaymentReceivedNotification(
+          ticketCode,
+          data.amount || 0,
+          data.plate || "N/A",
+          data.paymentType || "N/A"
+        )
+        break
       default:
         console.error("❌ [SEND-NOTIFICATION] Tipo de notificación no reconocido:", type)
         return NextResponse.json({ error: "Tipo de notificación no válido" }, { status: 400 })

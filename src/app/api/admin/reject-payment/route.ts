@@ -290,6 +290,62 @@ export async function PUT(request: Request) {
       console.warn("⚠️ No se encontró carro asociado al ticket:", payment.codigoTicket)
     }
 
+    // Enviar notificación al USER sobre el rechazo del pago
+    try {
+      console.log("🔔 [REJECT-PAYMENT] Enviando notificación al USUARIO...");
+      console.log("   Ticket Code:", payment.codigoTicket);
+      console.log("   User Type: user");
+      console.log("   Motivo:", razonRechazo);
+
+      const notificationPayload = {
+        type: "payment_rejected",
+        ticketCode: payment.codigoTicket,
+        userType: "user", // Important: send to USER, not admin
+        data: {
+          reason: razonRechazo || "Pago rechazado por administrador",
+          plate: car?.placa || "N/A",
+          amount: montoPagado,
+          montoAceptado: montoTotalAceptado,
+          diferenciaPendiente: diferenciaPendiente,
+          sobrepago: sobrepago,
+          pagoMixto: esPagoMixto,
+        },
+      };
+
+      console.log("📦 [REJECT-PAYMENT] Payload de notificación:", notificationPayload);
+
+      const notificationResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/send-notification`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(notificationPayload),
+        },
+      );
+
+      console.log("📡 [REJECT-PAYMENT] Respuesta de notificación:");
+      console.log("   Status:", notificationResponse.status);
+      console.log("   OK:", notificationResponse.ok);
+
+      if (!notificationResponse.ok) {
+        const errorText = await notificationResponse.text();
+        console.error("❌ [REJECT-PAYMENT] Error en notificación:", errorText);
+        // Log but don't fail the payment rejection
+      } else {
+        const responseData = await notificationResponse.json();
+        console.log("✅ [REJECT-PAYMENT] Notificación enviada al usuario exitosamente:");
+        console.log("   Enviadas:", responseData.sent);
+        console.log("   Total:", responseData.total);
+        console.log("   Mensaje:", responseData.message);
+      }
+    } catch (notificationError) {
+      console.error("❌ [REJECT-PAYMENT] Error sending notification:", notificationError);
+      console.error("❌ [REJECT-PAYMENT] Stack trace:", notificationError.stack);
+      // Log but don't fail the payment rejection
+    }
+
     const processingTime = Date.now() - startTime
 
     // Preparar mensaje de respuesta
