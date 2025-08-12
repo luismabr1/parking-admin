@@ -55,11 +55,15 @@ function AdminDashboard() {
 
     const updateVisibleTabs = () => {
       if (isMobile || window.innerWidth < 640) {
+        // En móvil, mostrar un conjunto fijo con "settings" incluido en el menú
         setVisibleTabs(["cars", "confirmations", "payments", "exit"])
       } else {
         const width = window.innerWidth
-        const maxTabs = width >= 1000 ? 8 : 4
-        setVisibleTabs(allTabs.slice(0, maxTabs))
+        const baseTabs = ["confirmations", "payments", "tickets", "cars", "exit", "settings"] // Asegurar "settings" siempre visible
+        const extraTabs = ["qr", "history", "staff", "notifications"]
+        const maxTabs = width >= 1200 ? allTabs.length : width >= 900 ? 8 : 6 // Ajustar breakpoints
+        const visible = [...baseTabs, ...extraTabs.slice(0, Math.max(0, maxTabs - baseTabs.length))]
+        setVisibleTabs(visible)
       }
     }
 
@@ -569,6 +573,9 @@ function AdminDashboard() {
         </TabsContent>
         <TabsContent value="staff">
           <StaffManagement onStatsUpdate={handleUpdate} />
+        </TabsContent>
+        <TabsContent value="settings">
+          <CompanySettings onUpdate={handleUpdate} />
         </TabsContent>
         <TabsContent value="notifications">
           <NotificationSettings userType="admin" onUpdate={handleUpdate} />

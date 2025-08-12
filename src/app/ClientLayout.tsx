@@ -20,7 +20,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
       <Toaster />
-      <PWAInstallPrompt />
+      <PWAInstallPrompt /> 
     </ThemeProvider>
   )
 }
