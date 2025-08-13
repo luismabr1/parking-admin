@@ -3,7 +3,7 @@ require("dotenv").config({ path: ".env" })
 
 if (!process.env.MONGODB_URI) {
   throw new Error(
-    'Invalid/Missing environment variable: "MONGODB_URI". Please set it in the .env file (e.g., MONGODB_URI=mongodb://localhost:27017/parking).'
+    'Invalid/Missing environment variable: "MONGODB_URI". Please set it in the .env file (e.g., MONGODB_URI=mongodb://localhost:27017/parking).',
   )
 }
 
@@ -33,6 +33,12 @@ if (process.env.NODE_ENV === "development") {
   client = new MongoClient(uri)
   clientPromise = client.connect()
   console.log("MongoDB client initialized in production mode")
+}
+
+export async function connectToDatabase() {
+  const client = await clientPromise
+  const db = client.db("parking")
+  return { client, db }
 }
 
 export default clientPromise

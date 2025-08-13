@@ -56,6 +56,9 @@ export async function GET(request: Request) {
           activo: 1,
           completado: 1,
 
+          tipoSalida: 1,
+          notaSalida: 1,
+
           // Summary data
           duracionTotalMinutos: 1,
           montoTotalPagado: 1,
@@ -85,6 +88,8 @@ export async function GET(request: Request) {
       estado: item.completado ? "finalizado" : item.activo ? "activo" : "inactivo",
       fechaRegistro: item.fechaRegistro,
       duracionMinutos: item.duracionTotalMinutos,
+      tipoSalida: item.tipoSalida,
+      notaSalida: item.notaSalida,
       ultimoEvento: item.eventos?.[0] || null,
     }))
 

@@ -39,10 +39,13 @@ interface CarHistoryItem {
   estado: string
   fechaRegistro: string
   duracionMinutos?: number
+  tipoSalida?: string // Added tipoSalida field
+  notaSalida?: string // Added notaSalida field
   ultimoEvento?: {
     tipo: string
     fecha: string
     estado: string
+    datos?: any
   }
 }
 
@@ -262,7 +265,25 @@ export default function CarHistory() {
     document.body.removeChild(link)
   }
 
-  const getStatusBadge = (estado: string) => {
+  const getStatusBadge = (
+    estado: string,
+    ultimoEvento?: { tipo: string; fecha: string; estado: string; datos?: any },
+    tipoSalida?: string, // Added tipoSalida parameter
+  ) => {
+    console.log("🔍 DEBUG: getStatusBadge called with:", {
+      estado,
+      ultimoEvento,
+      tipoSalida,
+      isQuickExit: tipoSalida === "salida_rapida" || ultimoEvento?.tipo === "salida_rapida",
+    })
+
+    if (tipoSalida === "salida_rapida" || ultimoEvento?.tipo === "salida_rapida") {
+      console.log("✅ DEBUG: Detected quick exit, returning orange badge")
+      return <Badge className="bg-orange-100 text-orange-800 border-orange-300">Salida Rápida</Badge>
+    }
+
+    console.log("❌ DEBUG: Not a quick exit, using regular status badge for estado:", estado)
+
     switch (estado) {
       case "activo":
         return <Badge variant="destructive">Estacionado</Badge>
@@ -270,6 +291,8 @@ export default function CarHistory() {
         return <Badge>Pagado</Badge>
       case "finalizado":
         return <Badge variant="secondary">Finalizado</Badge>
+      case "inactivo":
+        return <Badge variant="outline">Inactivo</Badge>
       default:
         return <Badge variant="outline">{estado}</Badge>
     }
@@ -286,13 +309,16 @@ export default function CarHistory() {
       pago_validado: { label: "Validado", variant: "default", icon: CheckCircle },
       pago_rechazado: { label: "Rechazado", variant: "destructive", icon: XCircle },
       salida_vehiculo: { label: "Salida", variant: "secondary", icon: Car },
+      salida_rapida: { label: "Salida Rápida", variant: "outline", icon: Car },
     }
 
     const eventType = eventTypes[tipo] || { label: tipo, variant: "outline" as const, icon: FileText }
     const IconComponent = eventType.icon
 
+    const badgeClass = tipo === "salida_rapida" ? "bg-orange-50 text-orange-700 border-orange-200" : ""
+
     return (
-      <Badge variant={eventType.variant} className="flex items-center gap-1">
+      <Badge variant={eventType.variant} className={`flex items-center gap-1 ${badgeClass}`}>
         <IconComponent className="h-3 w-3" />
         {eventType.label}
       </Badge>
@@ -332,12 +358,25 @@ export default function CarHistory() {
     return total
   }
 
-  const calculateGrandTotal = (pagos: DetailedHistory["pagos"], pagosRechazados: DetailedHistory["pagosRechazados"], montosPendientes: DetailedHistory["montosPendientes"]) => {
+  const calculateGrandTotal = (
+    pagos: DetailedHistory["pagos"],
+    pagosRechazados: DetailedHistory["pagosRechazados"],
+    montosPendientes: DetailedHistory["montosPendientes"],
+  ) => {
     const totalPaid = calculateTotalPaid(pagos)
     const totalRejected = calculateTotalRejected(pagosRechazados)
     const totalPending = calculateTotalPending(montosPendientes)
     const grandTotal = totalPaid + totalRejected + totalPending
-    console.log("🔍 DEBUG: calculateGrandTotal - Total Pagado:", totalPaid, "Total Rechazado:", totalRejected, "Total Pendiente:", totalPending, "Gran Total:", grandTotal)
+    console.log(
+      "🔍 DEBUG: calculateGrandTotal - Total Pagado:",
+      totalPaid,
+      "Total Rechazado:",
+      totalRejected,
+      "Total Pendiente:",
+      totalPending,
+      "Gran Total:",
+      grandTotal,
+    )
     return grandTotal
   }
 
@@ -345,7 +384,11 @@ export default function CarHistory() {
     const totalPaidAmount = calculateTotalPaid(detailedHistory.pagos)
     const totalRejectedAmount = calculateTotalRejected(detailedHistory.pagosRechazados)
     const totalPendingAmount = calculateTotalPending(detailedHistory.montosPendientes)
-    const grandTotalAmount = calculateGrandTotal(detailedHistory.pagos, detailedHistory.pagosRechazados, detailedHistory.montosPendientes)
+    const grandTotalAmount = calculateGrandTotal(
+      detailedHistory.pagos,
+      detailedHistory.pagosRechazados,
+      detailedHistory.montosPendientes,
+    )
     const specificPaidAmount = detailedHistory.datosFinales?.montoTotalPagado || 0
 
     return (
@@ -408,7 +451,20 @@ export default function CarHistory() {
                       <span className="text-sm text-gray-500">{formatDateTime(evento.fecha)}</span>
                     </div>
                     <p className="text-sm text-gray-600">Estado: {evento.estado}</p>
-                    {evento.datos && (
+                    {evento.tipo === "salida_rapida" && (evento.datos?.exitNote || detailedHistory.notaSalida) && (
+                      <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <FileText className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-orange-800">Nota de Salida Rápida:</p>
+                            <p className="text-sm text-orange-700 mt-1">
+                              {evento.datos?.exitNote || detailedHistory.notaSalida}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {evento.datos && evento.tipo !== "salida_rapida" && (
                       <div className="text-xs text-gray-500 mt-1 p-2 bg-gray-50 rounded">
                         {Object.entries(evento.datos).map(([key, value]) => (
                           <div key={key} className="flex justify-between">
@@ -425,7 +481,9 @@ export default function CarHistory() {
           </div>
 
           {/* Payments Details */}
-          {(detailedHistory.pagos?.length > 0 || detailedHistory.pagosRechazados?.length > 0 || detailedHistory.montosPendientes?.length > 0) && (
+          {(detailedHistory.pagos?.length > 0 ||
+            detailedHistory.pagosRechazados?.length > 0 ||
+            detailedHistory.montosPendientes?.length > 0) && (
             <div className="space-y-3">
               <h3 className="font-semibold flex items-center">
                 <CreditCard className="h-4 w-4 mr-2" />
@@ -539,7 +597,13 @@ export default function CarHistory() {
           <Button onClick={handleSearch} variant="outline">
             <Search className="h-4 w-4" />
           </Button>
-          <Button onClick={() => { fetchHistory(); fetchFinancialSummary(); }} variant="outline">
+          <Button
+            onClick={() => {
+              fetchHistory()
+              fetchFinancialSummary()
+            }}
+            variant="outline"
+          >
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
@@ -552,9 +616,7 @@ export default function CarHistory() {
                 <DollarSign className="h-4 w-4 text-green-600" />
                 <span className="text-sm font-medium">Pagos Validados</span>
               </div>
-              <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(financialSummary.totalPagado)}
-              </p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(financialSummary.totalPagado)}</p>
               <p className="text-xs text-gray-500">{financialSummary.totalRegistros} registros</p>
             </CardContent>
           </Card>
@@ -564,9 +626,7 @@ export default function CarHistory() {
                 <XCircle className="h-4 w-4 text-red-600" />
                 <span className="text-sm font-medium">Pagos Rechazados</span>
               </div>
-              <p className="text-2xl font-bold text-red-600">
-                {formatCurrency(financialSummary.totalRechazado)}
-              </p>
+              <p className="text-2xl font-bold text-red-600">{formatCurrency(financialSummary.totalRechazado)}</p>
               <p className="text-xs text-gray-500">{financialSummary.totalRegistros} registros</p>
             </CardContent>
           </Card>
@@ -576,9 +636,7 @@ export default function CarHistory() {
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
                 <span className="text-sm font-medium">Montos Pendientes</span>
               </div>
-              <p className="text-2xl font-bold text-yellow-600">
-                {formatCurrency(financialSummary.totalPendiente)}
-              </p>
+              <p className="text-2xl font-bold text-yellow-600">{formatCurrency(financialSummary.totalPendiente)}</p>
               <p className="text-xs text-gray-500">{financialSummary.totalRegistros} registros</p>
             </CardContent>
           </Card>
@@ -600,60 +658,112 @@ export default function CarHistory() {
               <p>No se encontraron registros</p>
             </div>
           ) : (
-            history.map((item) => (
-              <div key={item._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center space-x-4">
-                    <div>
-                      <p className="font-medium text-lg">{item.placa}</p>
-                      <p className="text-sm text-gray-600">
-                        {item.marca} {item.modelo} - {item.color}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Dueño: {item.nombreDueño} | Tel: {item.telefono}
-                      </p>
-                      <p className="text-sm text-gray-500">Ticket: {item.ticketAsociado}</p>
+            history.map((item) => {
+              console.log("🔍 DEBUG: Rendering history item:", {
+                _id: item._id,
+                placa: item.placa,
+                estado: item.estado,
+                tipoSalida: item.tipoSalida,
+                notaSalida: item.notaSalida,
+                ultimoEvento: item.ultimoEvento,
+                isQuickExit: item.tipoSalida === "salida_rapida" || item.ultimoEvento?.tipo === "salida_rapida",
+              })
+
+              return (
+                <div
+                  key={item._id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center space-x-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-lg">{item.placa}</p>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {item.marca} {item.modelo} - {item.color}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Dueño: {item.nombreDueño} | Tel: {item.telefono}
+                        </p>
+                        <p className="text-sm text-gray-500">Ticket: {item.ticketAsociado}</p>
+                        {(() => {
+                          const isQuickExit =
+                            item.tipoSalida === "salida_rapida" || item.ultimoEvento?.tipo === "salida_rapida"
+                          const hasNote = item.notaSalida
+                          console.log("🔍 DEBUG: Quick exit note check:", {
+                            placa: item.placa,
+                            isQuickExit,
+                            hasNote,
+                            notaSalida: item.notaSalida,
+                            shouldShowNote: isQuickExit && hasNote,
+                          })
+
+                          return isQuickExit && hasNote ? (
+                            <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
+                              <div className="flex items-start gap-2">
+                                <FileText className="h-3 w-3 text-orange-600 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs font-medium text-orange-800">Nota de Salida Rápida:</p>
+                                  <p className="text-xs text-orange-700 mt-0.5">
+                                    {item.notaSalida.length > 50
+                                      ? `${item.notaSalida.substring(0, 50)}...`
+                                      : item.notaSalida}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null
+                        })()}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="text-right space-y-1 flex-shrink-0">
-                  <div className="flex items-center space-x-2">
-                    {getStatusBadge(item.estado)}
-                    <Button
-                      onClick={() => fetchDetailedHistory(item._id.toString())}
-                      variant="outline"
-                      size="sm"
-                      disabled={isLoadingDetailed}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      Ver Detalle
-                    </Button>
-                  </div>
+                  <div className="text-right space-y-1 flex-shrink-0">
+                    <div className="flex items-center space-x-2">
+                      {(() => {
+                        console.log("🔍 DEBUG: About to call getStatusBadge for placa:", item.placa, "with params:", {
+                          estado: item.estado,
+                          ultimoEvento: item.ultimoEvento,
+                          tipoSalida: item.tipoSalida,
+                        })
+                        return getStatusBadge(item.estado, item.ultimoEvento, item.tipoSalida)
+                      })()}
+                      <Button
+                        onClick={() => fetchDetailedHistory(item._id.toString())}
+                        variant="outline"
+                        size="sm"
+                        disabled={isLoadingDetailed}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Ver Detalle
+                      </Button>
+                    </div>
 
-                  <p className="text-sm text-gray-500">
-                    Ingreso: {item.horaIngreso ? formatDateTime(item.horaIngreso) : "Sin fecha"}
-                  </p>
-
-                  {item.horaSalida && (
-                    <p className="text-sm text-gray-500">Salida: {formatDateTime(item.horaSalida)}</p>
-                  )}
-
-                  {item.duracionMinutos && (
-                    <p className="text-sm text-gray-500 flex items-center">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {formatDuration(item.duracionMinutos)}
+                    <p className="text-sm text-gray-500">
+                      Ingreso: {item.horaIngreso ? formatDateTime(item.horaIngreso) : "Sin fecha"}
                     </p>
-                  )}
 
-                  {item.montoTotal > 0 && (
-                    <p className="text-sm font-medium">Total: {formatCurrency(item.montoTotal)}</p>
-                  )}
+                    {item.horaSalida && (
+                      <p className="text-sm text-gray-500">Salida: {formatDateTime(item.horaSalida)}</p>
+                    )}
 
-                  {item.ultimoEvento && <p className="text-xs text-gray-400">Último: {item.ultimoEvento.tipo}</p>}
+                    {item.duracionMinutos && (
+                      <p className="text-sm text-gray-500 flex items-center">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {formatDuration(item.duracionMinutos)}
+                      </p>
+                    )}
+
+                    {item.montoTotal > 0 && (
+                      <p className="text-sm font-medium">Total: {formatCurrency(item.montoTotal)}</p>
+                    )}
+
+                    {item.ultimoEvento && <p className="text-xs text-gray-400">Último: {item.ultimoEvento.tipo}</p>}
+                  </div>
                 </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
 

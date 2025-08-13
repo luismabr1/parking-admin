@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CarIcon, RefreshCw, Plus, Camera, Smartphone, Monitor, ImageIcon, Edit, Eye } from "lucide-react"
+import { CarIcon, RefreshCw, Plus, Camera, Smartphone, Monitor, ImageIcon, Edit, Eye, Zap } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime } from "@/lib/utils"
@@ -17,6 +17,7 @@ import VehicleCapture from "./vehicle-capture"
 import MobileStats from "./mobile-stats"
 import MobileCarList from "./mobile-car-list"
 import CarImageViewer from "./car-image-viewer"
+import QuickExitModal from "./quick-exit-modal"
 import ImageWithFallback from "../ui/image-with-fallback"
 
 interface AvailableTicket {
@@ -100,6 +101,16 @@ function CarRegistration({ onUpdate }: CarRegistrationProps) {
     confianzaPlaca?: number
     confianzaVehiculo?: number
   } | null>(null)
+
+  const [quickExitModal, setQuickExitModal] = useState<{
+    isOpen: boolean
+    car: Car | null
+    isProcessing: boolean
+  }>({
+    isOpen: false,
+    car: null,
+    isProcessing: false,
+  })
 
   const fetchCars = useCallback(async () => {
     try {
@@ -317,6 +328,58 @@ function CarRegistration({ onUpdate }: CarRegistrationProps) {
       onUpdate()
     }
   }, [fetchCars, onUpdate])
+
+  const handleQuickExit = useCallback((car: Car) => {
+    setQuickExitModal({
+      isOpen: true,
+      car,
+      isProcessing: false,
+    })
+  }, [])
+
+  const handleQuickExitConfirm = useCallback(
+    async (exitNote: string) => {
+      if (!quickExitModal.car) return
+
+      setQuickExitModal((prev) => ({ ...prev, isProcessing: true }))
+
+      try {
+        const response = await fetch(`/api/admin/cars/${quickExitModal.car._id}/quick-exit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ exitNote }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setMessage(`✅ ${data.message}`)
+          setTimeout(() => setMessage(""), 5000)
+          await fetchCars()
+          if (onUpdate) onUpdate()
+          setQuickExitModal({ isOpen: false, car: null, isProcessing: false })
+        } else {
+          const errorData = await response.json()
+          setMessage(`❌ Error: ${errorData.message}`)
+          setTimeout(() => setMessage(""), 5000)
+        }
+      } catch (error) {
+        console.error("Error processing quick exit:", error)
+        setMessage("❌ Error de conexión")
+        setTimeout(() => setMessage(""), 5000)
+      } finally {
+        setQuickExitModal((prev) => ({ ...prev, isProcessing: false }))
+      }
+    },
+    [quickExitModal.car, fetchCars, onUpdate],
+  )
+
+  const handleQuickExitClose = useCallback(() => {
+    if (!quickExitModal.isProcessing) {
+      setQuickExitModal({ isOpen: false, car: null, isProcessing: false })
+    }
+  }, [quickExitModal.isProcessing])
 
   if (process.env.NODE_ENV === "development") {
     console.log(
@@ -709,6 +772,15 @@ function CarRegistration({ onUpdate }: CarRegistrationProps) {
                             Ver Imágenes
                           </Button>
                         )}
+                        <Button
+                          onClick={() => handleQuickExit(car)}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-3 text-xs whitespace-nowrap bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+                        >
+                          <Zap className="h-3 w-3 mr-1" />
+                          Salida Rápida
+                        </Button>
                       </div>
                     </div>
                   ))
@@ -717,6 +789,16 @@ function CarRegistration({ onUpdate }: CarRegistrationProps) {
           </CardContent>
         </Card>
       </div>
+
+      {quickExitModal.car && (
+        <QuickExitModal
+          car={quickExitModal.car}
+          isOpen={quickExitModal.isOpen}
+          onClose={handleQuickExitClose}
+          onConfirm={handleQuickExitConfirm}
+          isProcessing={quickExitModal.isProcessing}
+        />
+      )}
     </div>
   )
 }

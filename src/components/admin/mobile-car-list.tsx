@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { formatDateTime } from "@/lib/utils"
-import { Car, Clock, RefreshCw, Check, X, Edit3, Camera, ImageIcon, CheckCircle, AlertCircle } from "lucide-react"
+import { Car, Clock, RefreshCw, Check, X, Edit3, Camera, ImageIcon, CheckCircle, AlertCircle, Zap } from "lucide-react"
 import ImageWithFallback from "../ui/image-with-fallback"
+import QuickExitModal from "./quick-exit-modal"
 
 interface CarInfo {
   _id: string
@@ -54,6 +55,16 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
 
   const plateFileInputRef = useRef<HTMLInputElement>(null)
   const vehicleFileInputRef = useRef<HTMLInputElement>(null)
+
+  const [quickExitModal, setQuickExitModal] = useState<{
+    isOpen: boolean
+    car: CarInfo | null
+    isProcessing: boolean
+  }>({
+    isOpen: false,
+    car: null,
+    isProcessing: false,
+  })
 
   const showMessage = useCallback((msg: string, type: "success" | "error") => {
     setMessage(msg)
@@ -179,6 +190,54 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
       setIsSaving(false)
     }
   }, [editingId, editForm, capturedImages, onRefresh, isSaving, isUploadingImage, uploadToCloudinary, showMessage])
+
+  const handleQuickExit = useCallback((car: CarInfo) => {
+    setQuickExitModal({
+      isOpen: true,
+      car,
+      isProcessing: false,
+    })
+  }, [])
+
+  const handleQuickExitConfirm = useCallback(
+    async (exitNote: string) => {
+      if (!quickExitModal.car) return
+
+      setQuickExitModal((prev) => ({ ...prev, isProcessing: true }))
+
+      try {
+        const response = await fetch(`/api/admin/cars/${quickExitModal.car._id}/quick-exit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ exitNote }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          showMessage(`✅ ${data.message}`, "success")
+          onRefresh()
+          setQuickExitModal({ isOpen: false, car: null, isProcessing: false })
+        } else {
+          const errorData = await response.json()
+          showMessage(`❌ Error: ${errorData.message}`, "error")
+        }
+      } catch (error) {
+        console.error("Error processing quick exit:", error)
+        showMessage("❌ Error de conexión", "error")
+      } finally {
+        setQuickExitModal((prev) => ({ ...prev, isProcessing: false }))
+      }
+    },
+    [quickExitModal.car, onRefresh, showMessage],
+  )
+
+  const handleQuickExitClose = useCallback(() => {
+    if (!quickExitModal.isProcessing) {
+      setQuickExitModal({ isOpen: false, car: null, isProcessing: false })
+    }
+  }, [quickExitModal.isProcessing])
 
   const handleInputChange = useCallback((field: keyof CarInfo, value: string) => {
     setEditForm((prev) => ({ ...prev, [field]: value }))
@@ -451,62 +510,84 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                   </div>
                 ) : (
                   // Modo visualización
-                  <div onClick={() => handleEditClick(car)} className="cursor-pointer w-full">
-                    <div className="flex items-center justify-between mb-2 w-full">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <Car className="h-4 w-4 flex-shrink-0" />
-                        <span className="font-semibold break-words">{car.placa}</span>
-                        <Edit3 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  <div className="w-full">
+                    <div onClick={() => handleEditClick(car)} className="cursor-pointer w-full">
+                      <div className="flex items-center justify-between mb-2 w-full">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Car className="h-4 w-4 flex-shrink-0" />
+                          <span className="font-semibold break-words">{car.placa}</span>
+                          <Edit3 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        </div>
+                        <div className="flex-shrink-0">{getStatusBadge(car.estado)}</div>
                       </div>
-                      <div className="flex-shrink-0">{getStatusBadge(car.estado)}</div>
+
+                      <div className="text-sm text-muted-foreground space-y-1 w-full">
+                        {car.nota && (
+                          <div className="mb-2 p-2 bg-pink-50 rounded text-sm w-full">
+                            <span className="text-pink-600 font-medium break-words">📝 {car.nota}</span>
+                          </div>
+                        )}
+                        <p className="break-words">
+                          {car.marca} {car.modelo} - {car.color}
+                        </p>
+                        {car.nombreDueño && <p className="break-words">Dueño: {car.nombreDueño}</p>}
+                        {car.telefono && <p className="break-words">Teléfono: {car.telefono}</p>}
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 flex-shrink-0" />
+                          <span className="break-words">
+                            Ingreso: {car.horaIngreso ? formatDateTime(car.horaIngreso) : "Sin fecha"}
+                          </span>
+                        </div>
+                        <p className="break-words">Ticket: {car.ticketAsociado}</p>
+
+                        {/* Vista previa de imágenes en la lista */}
+                        {(car.imagenes?.plateImageUrl || car.imagenes?.vehicleImageUrl) && (
+                          <div className="flex gap-2 mt-2 pt-2 border-t w-full">
+                            {car.imagenes?.plateImageUrl && (
+                              <div className="flex-1 min-w-0">
+                                <ImageWithFallback
+                                  src={car.imagenes.plateImageUrl || "/placeholder.svg"}
+                                  alt="Placa"
+                                  className="w-full h-16 object-cover rounded border"
+                                  fallback="/placeholder.svg"
+                                />
+                                <p className="text-xs text-center mt-1 text-gray-500">Placa</p>
+                              </div>
+                            )}
+                            {car.imagenes?.vehicleImageUrl && (
+                              <div className="flex-1 min-w-0">
+                                <ImageWithFallback
+                                  src={car.imagenes.vehicleImageUrl || "/placeholder.svg"}
+                                  alt="Vehículo"
+                                  className="w-full h-16 object-cover rounded border"
+                                  fallback="/placeholder.svg"
+                                />
+                                <p className="text-xs text-center mt-1 text-gray-500">Vehículo</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-
-                    <div className="text-sm text-muted-foreground space-y-1 w-full">
-                      {car.nota && (
-                        <div className="mb-2 p-2 bg-pink-50 rounded text-sm w-full">
-                          <span className="text-pink-600 font-medium break-words">📝 {car.nota}</span>
-                        </div>
-                      )}
-                      <p className="break-words">
-                        {car.marca} {car.modelo} - {car.color}
-                      </p>
-                      {car.nombreDueño && <p className="break-words">Dueño: {car.nombreDueño}</p>}
-                      {car.telefono && <p className="break-words">Teléfono: {car.telefono}</p>}
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 flex-shrink-0" />
-                        <span className="break-words">
-                          Ingreso: {car.horaIngreso ? formatDateTime(car.horaIngreso) : "Sin fecha"}
-                        </span>
-                      </div>
-                      <p className="break-words">Ticket: {car.ticketAsociado}</p>
-
-                      {/* Vista previa de imágenes en la lista */}
-                      {(car.imagenes?.plateImageUrl || car.imagenes?.vehicleImageUrl) && (
-                        <div className="flex gap-2 mt-2 pt-2 border-t w-full">
-                          {car.imagenes?.plateImageUrl && (
-                            <div className="flex-1 min-w-0">
-                              <ImageWithFallback
-                                src={car.imagenes.plateImageUrl || "/placeholder.svg"}
-                                alt="Placa"
-                                className="w-full h-16 object-cover rounded border"
-                                fallback="/placeholder.svg"
-                              />
-                              <p className="text-xs text-center mt-1 text-gray-500">Placa</p>
-                            </div>
-                          )}
-                          {car.imagenes?.vehicleImageUrl && (
-                            <div className="flex-1 min-w-0">
-                              <ImageWithFallback
-                                src={car.imagenes.vehicleImageUrl || "/placeholder.svg"}
-                                alt="Vehículo"
-                                className="w-full h-16 object-cover rounded border"
-                                fallback="/placeholder.svg"
-                              />
-                              <p className="text-xs text-center mt-1 text-gray-500">Vehículo</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                    <div className="flex gap-2 mt-3 pt-3 border-t w-full">
+                      <Button
+                        onClick={() => handleEditClick(car)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 bg-transparent"
+                      >
+                        <Edit3 className="h-3 w-3 mr-1 flex-shrink-0" />
+                        <span className="truncate">Editar</span>
+                      </Button>
+                      <Button
+                        onClick={() => handleQuickExit(car)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+                      >
+                        <Zap className="h-3 w-3 mr-1 flex-shrink-0" />
+                        <span className="truncate">Salida Rápida</span>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -515,6 +596,16 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
           ))
         )}
       </div>
+
+      {quickExitModal.car && (
+        <QuickExitModal
+          car={quickExitModal.car}
+          isOpen={quickExitModal.isOpen}
+          onClose={handleQuickExitClose}
+          onConfirm={handleQuickExitConfirm}
+          isProcessing={quickExitModal.isProcessing}
+        />
+      )}
     </div>
   )
 }
