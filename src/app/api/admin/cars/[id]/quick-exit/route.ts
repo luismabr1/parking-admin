@@ -36,6 +36,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       ? Math.round((now.getTime() - new Date(car.horaIngreso).getTime()) / (1000 * 60))
       : 0
 
+    // Actualizar o crear registro en car_history con upsert
     const historyUpdateResult = await db.collection("car_history").updateOne(
       { carId: new ObjectId(carId) },
       {
@@ -54,6 +55,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           },
         },
         $set: {
+          carId: new ObjectId(carId),
+          placa: car.placa,
+          marca: car.marca,
+          modelo: car.modelo,
+          color: car.color,
+          nombreDueño: car.nombreDueño,
+          telefono: car.telefono,
+          ticketAsociado: car.ticketAsociado,
           estadoActual: "finalizado",
           activo: false,
           completado: true,
@@ -78,7 +87,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           },
         },
       },
+      { upsert: true }
     )
+
+    if (historyUpdateResult.modifiedCount === 0 && !historyUpdateResult.upsertedId) {
+      throw new Error("Fallo al actualizar o crear el historial del vehículo")
+    }
 
     // Remove car from active collection
     await db.collection("cars").deleteOne({ _id: new ObjectId(carId) })
@@ -131,7 +145,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       // Send notifications
       try {
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-
         await Promise.all([
           fetch(`${baseUrl}/api/send-notification`, {
             method: "POST",
