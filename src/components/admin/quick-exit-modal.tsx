@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Clock, Zap, AlertTriangle } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
+import { useMobileDetection } from "@/hooks/use-mobile-detection"
 
 interface QuickExitModalProps {
   car: {
@@ -33,6 +34,7 @@ interface QuickExitModalProps {
 export default function QuickExitModal({ car, isOpen, onClose, onConfirm, isProcessing }: QuickExitModalProps) {
   const [exitNote, setExitNote] = useState("")
   const [error, setError] = useState("")
+  const isMobile = useMobileDetection()
 
   const handleSubmit = async () => {
     if (!exitNote.trim()) {
@@ -64,25 +66,28 @@ export default function QuickExitModal({ car, isOpen, onClose, onConfirm, isProc
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-orange-500" />
+      <DialogContent
+        className={`overflow-hidden ${isMobile ? "flex flex-col max-h-[calc(100vh-2rem)]" : "sm:max-w-md"}`}
+      >
+        <DialogHeader className={isMobile ? "pb-3 flex-shrink-0" : ""}>
+          <DialogTitle className={`flex items-center gap-2 ${isMobile ? "text-lg" : ""}`}>
+            <Zap className={`${isMobile ? "h-4 w-4" : "h-5 w-5"} text-orange-500`} />
             Salida Rápida
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className={`space-y-4 ${isMobile ? "space-y-3 flex-1 overflow-y-auto" : ""}`}>
           {/* Información del vehículo */}
-          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+          <div className={`bg-gray-50 rounded-lg space-y-2 ${isMobile ? "p-3" : "p-4"}`}>
             <div className="flex items-center gap-2 mb-2">
-              {/* Placeholder for Car icon */}
               <span className="h-4 w-4 text-blue-600" />
-              <span className="font-semibold text-lg">{car.placa}</span>
-              <Badge variant="secondary">{car.estado === "estacionado_confirmado" ? "Confirmado" : "Pendiente"}</Badge>
+              <span className={`font-semibold ${isMobile ? "text-base" : "text-lg"}`}>{car.placa}</span>
+              <Badge variant="secondary" className={isMobile ? "text-xs" : ""}>
+                {car.estado === "estacionado_confirmado" ? "Confirmado" : "Pendiente"}
+              </Badge>
             </div>
 
-            <div className="text-sm text-gray-600 space-y-1">
+            <div className={`text-gray-600 space-y-1 ${isMobile ? "text-xs" : "text-sm"}`}>
               <p>
                 <strong>Vehículo:</strong> {car.marca} {car.modelo} - {car.color}
               </p>
@@ -100,7 +105,7 @@ export default function QuickExitModal({ car, isOpen, onClose, onConfirm, isProc
                 <span>Ingreso: {formatDateTime(car.horaIngreso)}</span>
               </div>
               {car.nota && (
-                <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                <div className={`mt-2 bg-blue-50 rounded ${isMobile ? "p-2 text-xs" : "p-2 text-sm"}`}>
                   <span className="text-blue-600 font-medium">📝 {car.nota}</span>
                 </div>
               )}
@@ -108,9 +113,9 @@ export default function QuickExitModal({ car, isOpen, onClose, onConfirm, isProc
           </div>
 
           {/* Alerta informativa */}
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
+          <Alert className={isMobile ? "p-2" : "p-4"}>
+            <AlertTriangle className={isMobile ? "h-3 w-3" : "h-4 w-4"} />
+            <AlertDescription className={isMobile ? "text-xs" : "text-sm"}>
               <strong>Salida Rápida:</strong> Esta acción liberará inmediatamente el espacio de estacionamiento sin
               requerir pago. Se registrará en el historial como "salida_rapida".
             </AlertDescription>
@@ -118,7 +123,7 @@ export default function QuickExitModal({ car, isOpen, onClose, onConfirm, isProc
 
           {/* Campo de nota obligatoria */}
           <div className="space-y-2">
-            <Label htmlFor="exitNote" className="text-sm font-medium">
+            <Label htmlFor="exitNote" className={`font-medium ${isMobile ? "text-sm" : "text-base"}`}>
               Nota de Salida (Obligatoria) *
             </Label>
             <Textarea
@@ -126,27 +131,34 @@ export default function QuickExitModal({ car, isOpen, onClose, onConfirm, isProc
               value={exitNote}
               onChange={(e) => setExitNote(e.target.value)}
               placeholder="Explique el motivo de la salida rápida (ej: emergencia médica, problema técnico, cortesía, etc.)"
-              className="min-h-[80px] resize-none"
+              className={`resize-none ${isMobile ? "min-h-[60px] text-sm" : "min-h-[80px] text-base"}`}
               disabled={isProcessing}
             />
-            <p className="text-xs text-gray-500">Mínimo 10 caracteres. Esta nota se guardará en el historial.</p>
+            <p className={`text-gray-500 ${isMobile ? "text-xs" : "text-sm"}`}>
+              Mínimo 10 caracteres. Esta nota se guardará en el historial.
+            </p>
           </div>
 
           {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+            <Alert variant="destructive" className={isMobile ? "p-2" : "p-4"}>
+              <AlertDescription className={isMobile ? "text-xs" : "text-sm"}>{error}</AlertDescription>
             </Alert>
           )}
         </div>
 
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={handleClose} disabled={isProcessing}>
+        <DialogFooter className={`flex gap-2 ${isMobile ? "flex-col-reverse space-y-2" : "justify-end"}`}>
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={isProcessing}
+            className={isMobile ? "w-full" : "min-w-[100px]"}
+          >
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isProcessing || !exitNote.trim()}
-            className="bg-orange-600 hover:bg-orange-700"
+            className={`bg-orange-600 hover:bg-orange-700 text-white ${isMobile ? "w-full" : "min-w-[150px]"}`}
           >
             <Zap className="h-4 w-4 mr-2" />
             {isProcessing ? "Procesando..." : "Confirmar Salida Rápida"}
