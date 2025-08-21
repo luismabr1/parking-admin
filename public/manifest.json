@@ -1,46 +1,32 @@
 {
-  "name": "Parking Admin System",
-  "short_name": "ParkingAdmin",
-  "description": "Sistema de administración de estacionamiento móvil",
+  "name": "Parking Admin PWA - Sistema de Administración",
+  "short_name": "Admin PWA",
+  "description": "Sistema completo de administración de estacionamiento",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#F2F2F2",
+  "theme_color": "#304673",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "es",
-  "categories": ["business", "productivity"],
+  "categories": ["business", "productivity", "utilities"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.svg",
+      "sizes": "390x844",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Vista móvil de la aplicación"
+    },
+    {
+      "src": "/screenshot-desktop.svg",
+      "sizes": "1280x720",
+      "type": "image/svg+xml",
+      "form_factor": "wide",
+      "label": "Vista de escritorio de la aplicación"
+    }
+  ],
   "icons": [
-    {
-      "src": "/logo.svg",
-      "sizes": "72x72",
-      "type": "image/svg+xml",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/logo.svg",
-      "sizes": "96x96",
-      "type": "image/svg+xml",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/logo.svg",
-      "sizes": "128x128",
-      "type": "image/svg+xml",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/logo.svg",
-      "sizes": "144x144",
-      "type": "image/svg+xml",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/logo.svg",
-      "sizes": "152x152",
-      "type": "image/svg+xml",
-      "purpose": "maskable any"
-    },
     {
       "src": "/logo.svg",
       "sizes": "192x192",
@@ -49,27 +35,52 @@
     },
     {
       "src": "/logo.svg",
-      "sizes": "384x384",
-      "type": "image/svg+xml",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/logo.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "144x144",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "96x96",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "72x72",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "48x48",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "36x36",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
   "shortcuts": [
     {
       "name": "Registrar Vehículo",
       "short_name": "Registrar",
-      "description": "Registrar nuevo vehículo",
-      "url": "/admin/dashboard?tab=capture",
+      "description": "Registrar nuevo vehículo en el sistema",
+      "url": "/admin?action=register",
       "icons": [
         {
-          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23000000' rx='38'/%3E%3Ctext x='50%25' y='55%25' font-family='Arial' font-size='76' fill='white' text-anchor='middle' dominant-baseline='middle'%3EP%3C/text%3E%3C/svg%3E",
-          "sizes": "192x192"
+          "src": "/logo.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
         }
       ]
     },
@@ -77,13 +88,22 @@
       "name": "Ver Estadísticas",
       "short_name": "Stats",
       "description": "Ver estadísticas del estacionamiento",
-      "url": "/admin/dashboard?tab=stats",
+      "url": "/admin?action=stats",
       "icons": [
         {
-          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23000000' rx='38'/%3E%3Ctext x='50%25' y='55%25' font-family='Arial' font-size='76' fill='white' text-anchor='middle' dominant-baseline='middle'%3EP%3C/text%3E%3C/svg%3E",
-          "sizes": "192x192"
+          "src": "/logo.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
         }
       ]
     }
-  ]
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }

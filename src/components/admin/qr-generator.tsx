@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Download, QrCode, RefreshCw, Printer } from "lucide-react"
 import QRCode from "qrcode"
+import { APP_CONFIG, getLogoSrc } from "@/config/app-config"
 
 interface Ticket {
   _id: string
@@ -29,7 +30,6 @@ export default function QRGenerator() {
       const response = await fetch("/api/admin/tickets")
       if (response.ok) {
         const data = await response.json()
-        // Ordenar tickets por codigoTicket de menor a mayor
         const sortedTickets = data.tickets.sort((a, b) => a.codigoTicket.localeCompare(b.codigoTicket))
         setTickets(sortedTickets)
       }
@@ -44,7 +44,6 @@ export default function QRGenerator() {
     try {
       setGeneratingQR(ticketCode)
 
-      // Usar la variable de entorno NEXT_PUBLIC_TICKET_URL o fallback al origen actual
       const baseUrl = process.env.NEXT_PUBLIC_TICKET_URL || window.location.origin
       const ticketUrl = `${baseUrl}/ticket/${ticketCode}`
 
@@ -77,8 +76,8 @@ export default function QRGenerator() {
   }
 
   const printQRCard = async (ticketCode: string) => {
-    setGeneratingQR(ticketCode) // Indicar que estamos generando para deshabilitar el botón
-    const qrDataUrl = await generateQRCode(ticketCode) // Esperar a que el QR esté listo
+    setGeneratingQR(ticketCode)
+    const qrDataUrl = await generateQRCode(ticketCode)
 
     if (!qrDataUrl) {
       console.error("Failed to generate QR code for printing")
@@ -87,9 +86,10 @@ export default function QRGenerator() {
       return
     }
 
+    const logoSrc = getLogoSrc("light")
+
     const printWindow = window.open("", "_blank")
     if (printWindow) {
-      // Añadir un pequeño retraso para asegurar que el navegador esté listo
       setTimeout(() => {
         printWindow.document.write(`
           <!DOCTYPE html>
@@ -143,11 +143,37 @@ export default function QRGenerator() {
                   transform: scaleX(-1);
                 }
                 
+                .logo-container {
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 15px;
+                  margin-bottom: 20px;
+                }
+                
+                .logo-circle {
+                  width: 60px;
+                  height: 60px;
+                  border-radius: 50%;
+                  background: #304673;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  flex-shrink: 0;
+                }
+                
+                .logo-circle img {
+                  width: 40px;
+                  height: 40px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                }
+                
                 .title {
-                  font-size: 24px;
+                  font-size: 32px;
                   font-weight: bold;
-                  margin-bottom: 10px;
-                  color: #000;
+                  color: #304673;
+                  letter-spacing: 2px;
                 }
                 
                 .subtitle {
@@ -171,7 +197,7 @@ export default function QRGenerator() {
                   background: #f0f0f0;
                   padding: 10px;
                   border-radius: 5px;
-                  margin: 15px 0;
+                  margin: 5px 0;
                 }
                 
                 .instructions {
@@ -268,7 +294,12 @@ export default function QRGenerator() {
                   <!-- CARA FRONTAL -->
                   <div class="card-front">
                     <div>
-                      <div class="title">🚗 Parking MoDo Caracas</div>
+                      <div class="logo-container">
+                        <div class="logo-circle">
+                          <img src="${logoSrc}" alt="${APP_CONFIG.logo.alt}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                        </div>
+                        <div class="title">PARKING</div>
+                      </div>
                       <div class="subtitle">Espacio de Estacionamiento</div>
                     </div>
                     
@@ -331,8 +362,8 @@ export default function QRGenerator() {
         `)
         printWindow.document.close()
         printWindow.print()
-        setGeneratingQR(null) // Liberar el estado después de imprimir
-      }, 100) // Retraso de 100ms para asegurar que la ventana esté lista
+        setGeneratingQR(null)
+      }, 100)
     } else {
       console.error("Failed to open print window")
       alert("No se pudo abrir la ventana de impresión. Por favor, intenta de nuevo.")

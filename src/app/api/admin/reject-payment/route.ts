@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { sendNotificationToTicket } from "@/lib/push-notifications"
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
 export const revalidate = 0
+
+export async function POST(request: Request) {
+  return PUT(request)
+}
 
 export async function PUT(request: Request) {
   const startTime = Date.now()
@@ -31,7 +36,7 @@ export async function PUT(request: Request) {
     }
 
     const {
-      paymentId,
+      pagoId,
       razonRechazo,
       montoAceptado,
       pagoMixto = false,
@@ -41,7 +46,7 @@ export async function PUT(request: Request) {
 
     if (process.env.NODE_ENV === "development") {
       console.log("🔍 Validando parámetros de rechazo...")
-      console.log("- paymentId:", paymentId)
+      console.log("- pagoId:", pagoId)
       console.log("- razonRechazo:", razonRechazo)
       console.log("- montoAceptado:", montoAceptado)
       console.log("- pagoMixto:", pagoMixto)
@@ -49,24 +54,24 @@ export async function PUT(request: Request) {
       console.log("- electronicoRecibido:", electronicoRecibido)
     }
 
-    if (!paymentId) {
+    if (!pagoId) {
       const errorMsg = "ID de pago requerido"
       if (process.env.NODE_ENV === "development") {
-        console.error("❌ Validación fallida: paymentId faltante")
+        console.error("❌ Validación fallida: pagoId faltante")
       }
       return NextResponse.json({ message: errorMsg }, { status: 400 })
     }
 
     // Buscar el pago
     if (process.env.NODE_ENV === "development") {
-      console.log("💰 Buscando pago con ID:", paymentId)
+      console.log("💰 Buscando pago con ID:", pagoId)
     }
 
-    const payment = await db.collection("pagos").findOne({ _id: new ObjectId(paymentId) })
+    const payment = await db.collection("pagos").findOne({ _id: new ObjectId(pagoId) })
 
     if (!payment) {
       if (process.env.NODE_ENV === "development") {
-        console.error("❌ Pago no encontrado:", paymentId)
+        console.error("❌ Pago no encontrado:", pagoId)
       }
       return NextResponse.json({ message: "Pago no encontrado" }, { status: 404 })
     }
@@ -141,7 +146,7 @@ export async function PUT(request: Request) {
     }
 
     const updateResult = await db.collection("pagos").updateOne(
-      { _id: new ObjectId(paymentId) },
+      { _id: new ObjectId(pagoId) },
       {
         $set: {
           estado: "rechazado",
@@ -164,8 +169,8 @@ export async function PUT(request: Request) {
       console.log("💾 Pago rechazado - Documentos modificados:", updateResult.modifiedCount)
     }
 
-    // Determinar nuevo estado del ticket
-    let nuevoEstadoTicket = "estacionado_confirmado" // Por defecto, permite nuevo pago
+    // Determinar nuevo estado del ticket - siempre permite nuevo pago cuando se rechaza
+    let nuevoEstadoTicket = "estacionado_confirmado" // Permite nuevo pago
 
     if (diferenciaPendiente === 0 && sobrepago === 0 && montoTotalAceptado > 0) {
       // Si el monto aceptado es exacto, marcar como pagado
@@ -227,7 +232,7 @@ export async function PUT(request: Request) {
             fecha: now,
             estado: nuevoEstadoCarro,
             datos: {
-              pagoId: paymentId,
+              pagoId: pagoId,
               validadoPor: "admin",
               razonRechazo: razonRechazo || "Pago rechazado por administrador",
               montoPagado: montoPagado,
@@ -242,7 +247,7 @@ export async function PUT(request: Request) {
             },
           },
           pagosRechazados: {
-            pagoId: paymentId,
+            pagoId: pagoId,
             fecha: payment.fechaPago,
             fechaRechazo: now,
             monto: montoPagado,
@@ -269,7 +274,7 @@ export async function PUT(request: Request) {
           monto: diferenciaPendiente,
           fecha: now,
           razon: `Diferencia por pago rechazado - ${razonRechazo || "Monto insuficiente"}`,
-          pagoRechazadoId: paymentId,
+          pagoRechazadoId: pagoId,
           pagoMixto: esPagoMixto,
         }
       }
@@ -290,18 +295,17 @@ export async function PUT(request: Request) {
       console.warn("⚠️ No se encontró carro asociado al ticket:", payment.codigoTicket)
     }
 
-    // Enviar notificación al USER sobre el rechazo del pago
     try {
-      console.log("🔔 [REJECT-PAYMENT] Enviando notificación al USUARIO...");
-      console.log("   Ticket Code:", payment.codigoTicket);
-      console.log("   User Type: user");
-      console.log("   Motivo:", razonRechazo);
+      console.log("🔔 [REJECT-PAYMENT] Enviando notificación al cliente...")
 
-      const notificationPayload = {
-        type: "payment_rejected",
-        ticketCode: payment.codigoTicket,
-        userType: "user", // Important: send to USER, not admin
+      const notificationResult = await sendNotificationToTicket(payment.codigoTicket, {
+        title: "❌ Pago Rechazado",
+        body: `Tu pago ha sido rechazado. Motivo: ${razonRechazo || "Pago rechazado por administrador"}. Vehículo: ${car?.placa || "N/A"}`,
+        icon: "/icon-192x192.png",
+        badge: "/badge-72x72.png",
         data: {
+          type: "payment_rejected",
+          ticketCode: payment.codigoTicket,
           reason: razonRechazo || "Pago rechazado por administrador",
           plate: car?.placa || "N/A",
           amount: montoPagado,
@@ -310,39 +314,15 @@ export async function PUT(request: Request) {
           sobrepago: sobrepago,
           pagoMixto: esPagoMixto,
         },
-      };
+      })
 
-      console.log("📦 [REJECT-PAYMENT] Payload de notificación:", notificationPayload);
-
-      const notificationResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/send-notification`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(notificationPayload),
-        },
-      );
-
-      console.log("📡 [REJECT-PAYMENT] Respuesta de notificación:");
-      console.log("   Status:", notificationResponse.status);
-      console.log("   OK:", notificationResponse.ok);
-
-      if (!notificationResponse.ok) {
-        const errorText = await notificationResponse.text();
-        console.error("❌ [REJECT-PAYMENT] Error en notificación:", errorText);
-        // Log but don't fail the payment rejection
-      } else {
-        const responseData = await notificationResponse.json();
-        console.log("✅ [REJECT-PAYMENT] Notificación enviada al usuario exitosamente:");
-        console.log("   Enviadas:", responseData.sent);
-        console.log("   Total:", responseData.total);
-        console.log("   Mensaje:", responseData.message);
-      }
+      console.log("✅ [REJECT-PAYMENT] Notificación enviada:", {
+        sent: notificationResult.sent,
+        total: notificationResult.total,
+        errors: notificationResult.errors.length,
+      })
     } catch (notificationError) {
-      console.error("❌ [REJECT-PAYMENT] Error sending notification:", notificationError);
-      console.error("❌ [REJECT-PAYMENT] Stack trace:", notificationError.stack);
+      console.error("❌ [REJECT-PAYMENT] Error sending notification:", notificationError)
       // Log but don't fail the payment rejection
     }
 
@@ -363,7 +343,7 @@ export async function PUT(request: Request) {
     if (process.env.NODE_ENV === "development") {
       console.log(`🎉 Pago rechazado exitosamente en ${processingTime}ms`)
       console.log("📊 Resumen de rechazo:", {
-        pagoId: paymentId,
+        pagoId: pagoId,
         codigoTicket: payment.codigoTicket,
         montoPagado: montoPagado,
         montoAceptado: montoTotalAceptado,

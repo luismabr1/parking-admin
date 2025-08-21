@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
+import { sendNotificationToTicket } from "@/lib/push-notifications"
 
 export async function POST(request: NextRequest) {
   try {
@@ -165,48 +166,26 @@ export async function POST(request: NextRequest) {
       console.log("   Monto:", pago.montoPagado, "Bs")
       console.log("   Placa:", car?.placa || "N/A")
 
-      const notificationPayload = {
-        type: "payment_validated",
-        ticketCode: pago.codigoTicket,
-        userType: "user", // Important: send to USER, not admin
+      const notificationResult = await sendNotificationToTicket(pago.codigoTicket, {
+        title: "✅ Pago Validado",
+        body: `Tu pago de ${pago.montoPagado} Bs ha sido validado. Vehículo: ${car?.placa || "N/A"}`,
+        icon: "/icon-192x192.png",
+        badge: "/badge-72x72.png",
         data: {
+          type: "payment_validated",
+          ticketCode: pago.codigoTicket,
           amount: pago.montoPagado,
           plate: car?.placa || "N/A",
-          reason: "Pago validado exitosamente",
         },
-      }
+      })
 
-      console.log("📦 [VALIDATE-PAYMENT] Payload de notificación:", notificationPayload)
-
-      const notificationResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/send-notification`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(notificationPayload),
-        },
-      )
-
-      console.log("📡 [VALIDATE-PAYMENT] Respuesta de notificación:")
-      console.log("   Status:", notificationResponse.status)
-      console.log("   OK:", notificationResponse.ok)
-
-      if (!notificationResponse.ok) {
-        const errorText = await notificationResponse.text()
-        console.error("❌ [VALIDATE-PAYMENT] Error en notificación:", errorText)
-        // Log but don't fail the payment validation
-      } else {
-        const responseData = await notificationResponse.json()
-        console.log("✅ [VALIDATE-PAYMENT] Notificación enviada al usuario exitosamente:")
-        console.log("   Enviadas:", responseData.sent)
-        console.log("   Total:", responseData.total)
-        console.log("   Mensaje:", responseData.message)
-      }
+      console.log("✅ [VALIDATE-PAYMENT] Notificación enviada:", {
+        sent: notificationResult.sent,
+        total: notificationResult.total,
+        errors: notificationResult.errors.length,
+      })
     } catch (notificationError) {
       console.error("❌ [VALIDATE-PAYMENT] Error sending notification:", notificationError)
-      console.error("❌ [VALIDATE-PAYMENT] Stack trace:", notificationError.stack)
       // Log but don't fail the payment validation
     }
 
