@@ -93,6 +93,8 @@ export interface Staff {
   activo: boolean
 }
 
+export type StaffMember = Staff
+
 export interface Bank {
   _id?: string
   code: string

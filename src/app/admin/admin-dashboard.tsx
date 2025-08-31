@@ -1,10 +1,9 @@
 "use client"
-
 import { useState, useEffect, useMemo } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, ChevronDown, ChevronUp, Smartphone, MoreHorizontal, Wifi, WifiOff } from "lucide-react"
+import { RefreshCw, ChevronDown, ChevronUp, Smartphone, MoreHorizontal, Wifi, WifiOff, LogOut } from "lucide-react"
 import PendingPayments from "../../components/admin/pending-payments"
 import StaffManagement from "../../components/admin/staff-management"
 import CompanySettings from "../../components/admin/company-settings"
@@ -21,6 +20,7 @@ import React from "react"
 import NotificationSettings from "@/components/notification/notification-settings"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useRouter } from "next/navigation"
 
 function AdminDashboard() {
   const { stats, isLoading, isConnected, connectionStatus, error, refetch } = useRealTimeStats()
@@ -28,9 +28,135 @@ function AdminDashboard() {
   const isMobile = useMobileDetection()
   const [activeTab, setActiveTab] = useState("cars")
   const [visibleTabs, setVisibleTabs] = useState<string[]>([])
+  const [userRole, setUserRole] = useState<string>("")
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const userData = localStorage.getItem("userData")
+      const authToken = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("authToken="))
+        ?.split("=")[1]
+
+      console.log("[v0] Auth check - userData exists:", !!userData)
+      console.log("[v0] Auth check - authToken exists:", !!authToken)
+
+      if (!userData || !authToken) {
+        console.log("[v0] No auth data found, redirecting to login")
+        localStorage.removeItem("userData")
+        document.cookie = "authToken=; Path=/; Max-Age=0"
+        router.push("/")
+        return
+      }
+
+      try {
+        const user = JSON.parse(userData)
+        if (!user || typeof user !== "object" || !user.email || !user.rol) {
+          console.log("[v0] Invalid user object structure:", user)
+          localStorage.removeItem("userData")
+          document.cookie = "authToken=; Path=/; Max-Age=0"
+          router.push("/")
+          return
+        }
+        setUserRole(user.rol || "")
+        setIsAuthenticated(true)
+      } catch (error) {
+        console.error("[v0] Error parsing user data:", error)
+        localStorage.removeItem("userData")
+        document.cookie = "authToken=; Path=/; Max-Age=0"
+        router.push("/")
+      } finally {
+        setAuthLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
 
   const handleTabChange = (value: string) => {
     setActiveTab(value)
+  }
+
+  const handleLogout = async () => {
+    console.log("[v0] ========== LOGOUT PROCESS STARTED ==========")
+    console.log("[v0] Current localStorage userData:", localStorage.getItem("userData"))
+    console.log(
+      "[v0] Current authToken cookie:",
+      document.cookie.split("; ").find((row) => row.startsWith("authToken=")),
+    )
+
+    try {
+      console.log("[v0] Step 1: Clearing localStorage...")
+      localStorage.removeItem("userData")
+      localStorage.removeItem("authToken")
+      console.log("[v0] localStorage cleared - userData:", localStorage.getItem("userData"))
+      console.log("[v0] localStorage cleared - authToken:", localStorage.getItem("authToken"))
+
+      console.log("[v0] Step 2: Clearing cookies...")
+      document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
+      document.cookie = "userData=; Path=/; Max-Age=0; SameSite=Strict"
+      console.log("[v0] Cookies cleared - current cookies:", document.cookie)
+
+      console.log("[v0] Step 3: Clearing browser caches...")
+      if ("caches" in window) {
+        const cacheNames = await caches.keys()
+        console.log("[v0] Found caches:", cacheNames)
+        await Promise.all(
+          cacheNames.map(async (cacheName) => {
+            console.log("[v0] Clearing cache:", cacheName)
+            await caches.delete(cacheName)
+          }),
+        )
+        console.log("[v0] All caches cleared")
+      } else {
+        console.log("[v0] Cache API not supported in this browser")
+      }
+
+      console.log("[v0] Step 4: Unregistering service workers...")
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        console.log("[v0] Found service workers:", registrations.length)
+        await Promise.all(
+          registrations.map(async (registration) => {
+            console.log("[v0] Unregistering service worker:", registration.scope)
+            await registration.unregister()
+          }),
+        )
+        console.log("[v0] All service workers unregistered")
+      } else {
+        console.log("[v0] Service Worker API not supported in this browser")
+      }
+
+      console.log("[v0] Step 5: Calling logout API...")
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      console.log("[v0] Logout API called successfully")
+
+      console.log("[v0] Step 6: Final verification before redirect...")
+      console.log("[v0] Final localStorage userData:", localStorage.getItem("userData"))
+      console.log(
+        "[v0] Final authToken cookie:",
+        document.cookie.split("; ").find((row) => row.startsWith("authToken=")),
+      )
+
+      console.log("[v0] Step 7: Performing hard redirect to /")
+      console.log("[v0] ========== LOGOUT PROCESS COMPLETED ==========")
+      window.location.href = "/"
+    } catch (error) {
+      console.error("[v0] ========== LOGOUT ERROR ==========")
+      console.error("[v0] Error during logout:", error)
+      // Fallback to basic logout if cache clearing fails
+      localStorage.removeItem("userData")
+      document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
+      document.cookie = "userData=; Path=/; Max-Age=0; SameSite=Strict"
+      console.log("[v0] Fallback logout completed, redirecting...")
+      window.location.href = "/"
+    }
   }
 
   useEffect(() => {
@@ -54,23 +180,35 @@ function AdminDashboard() {
     ]
 
     const updateVisibleTabs = () => {
+      let availableTabs = allTabs
+      if (userRole === "operador") {
+        availableTabs = ["confirmations", "payments", "cars", "exit", "qr"]
+      }
+
       if (isMobile || window.innerWidth < 640) {
-        // En móvil, mostrar un conjunto fijo con "settings" incluido en el menú
-        setVisibleTabs(["cars", "confirmations", "payments", "exit"])
+        if (userRole === "operador") {
+          setVisibleTabs(["cars", "confirmations", "payments", "exit"])
+        } else {
+          setVisibleTabs(["cars", "confirmations", "payments", "exit"])
+        }
       } else {
         const width = window.innerWidth
-        const baseTabs = ["confirmations", "payments", "tickets", "cars", "exit", "settings"] // Asegurar "settings" siempre visible
-        const extraTabs = ["qr", "history", "staff", "notifications"]
-        const maxTabs = width >= 1200 ? allTabs.length : width >= 900 ? 8 : 6 // Ajustar breakpoints
-        const visible = [...baseTabs, ...extraTabs.slice(0, Math.max(0, maxTabs - baseTabs.length))]
-        setVisibleTabs(visible)
+        if (userRole === "operador") {
+          setVisibleTabs(availableTabs)
+        } else {
+          const baseTabs = ["confirmations", "payments", "tickets", "cars", "exit", "settings"]
+          const extraTabs = ["qr", "history", "staff", "notifications"]
+          const maxTabs = width >= 1200 ? allTabs.length : width >= 900 ? 8 : 6
+          const visible = [...baseTabs, ...extraTabs.slice(0, Math.max(0, maxTabs - baseTabs.length))]
+          setVisibleTabs(visible)
+        }
       }
     }
 
     updateVisibleTabs()
     window.addEventListener("resize", updateVisibleTabs)
     return () => window.removeEventListener("resize", updateVisibleTabs)
-  }, [isMobile])
+  }, [isMobile, userRole])
 
   const hiddenTabs = useMemo(() => {
     const allTabs = [
@@ -85,37 +223,39 @@ function AdminDashboard() {
       "settings",
       "notifications",
     ]
-    return allTabs.filter((tab) => !visibleTabs.includes(tab))
-  }, [visibleTabs])
-
-  const ConnectionStatus = () => (
-    <div className="flex items-center gap-2">
-      {connectionStatus === "live" ? (
-        <div className="flex items-center gap-1 text-green-600">
-          <Wifi className="h-4 w-4" />
-          <span className="text-xs">En vivo</span>
-        </div>
-      ) : connectionStatus === "inactive" ? (
-        <div className="flex items-center gap-1 text-yellow-600">
-          <WifiOff className="h-4 w-4" />
-          <span className="text-xs">Inactivo</span>
-        </div>
-      ) : (
-        <div className="flex items-center gap-1 text-orange-600">
-          <WifiOff className="h-4 w-4" />
-          <span className="text-xs">Segundo plano</span>
-        </div>
-      )}
-    </div>
-  )
+    let availableTabs = allTabs
+    if (userRole === "operador") {
+      availableTabs = ["confirmations", "payments", "cars", "exit", "qr"]
+    }
+    return availableTabs.filter((tab) => !visibleTabs.includes(tab))
+  }, [visibleTabs, userRole])
 
   const handleUpdate = () => {
-    setTimeout(() => {
-      refetch()
-      if (process.env.NODE_ENV === "development") {
-        console.log("📢 Stats updated after 1-2 seconds")
-      }
-    }, 1500) // 1.5 seconds delay
+    refetch()
+  }
+
+  const ConnectionStatus = () => {
+    return (
+      <div className="flex items-center space-x-2">
+        {isConnected ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-red-500" />}
+        <span className="text-sm">{connectionStatus}</span>
+      </div>
+    )
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Verificando autenticación...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null
   }
 
   if (isMobile) {
@@ -123,13 +263,23 @@ function AdminDashboard() {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Panel Admin</h1>
+            <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+              {userRole === "operador" ? "Panel Operador" : "Panel Admin"}
+            </h1>
             <p className="text-sm text-gray-600 dark:text-gray-300">Gestión de estacionamiento</p>
           </div>
           <div className="flex items-center gap-2">
             <ConnectionStatus />
             <Button onClick={refetch} variant="outline" size="sm" disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+            <Button
+              onClick={handleLogout}
+              variant="destructive"
+              size="sm"
+              className="text-white bg-red-600 hover:bg-red-700 border-red-600"
+            >
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -174,19 +324,13 @@ function AdminDashboard() {
                 </div>
                 <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <span>Confirmaciones:</span>
-                  <Badge
-                    variant={stats.pendingConfirmations > 0 ? "destructive" : "outline"}
-                  >
+                  <Badge variant={stats.pendingConfirmations > 0 ? "destructive" : "outline"}>
                     {stats.pendingConfirmations}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <span>Pagos pendientes:</span>
-                  <Badge
-                    variant={stats.pendingPayments > 0 ? "destructive" : "outline"}
-                  >
-                    {stats.pendingPayments}
-                  </Badge>
+                  <Badge variant={stats.pendingPayments > 0 ? "destructive" : "outline"}>{stats.pendingPayments}</Badge>
                 </div>
               </div>
             </CardContent>
@@ -259,24 +403,33 @@ function AdminDashboard() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 min-w-0">
-                <DropdownMenuItem onClick={() => handleTabChange("tickets")} className="cursor-pointer">
-                  Espacios
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("qr")} className="cursor-pointer">
-                  QR
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("history")} className="cursor-pointer">
-                  Historial
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("staff")} className="cursor-pointer">
-                  Personal
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("settings")} className="cursor-pointer">
-                  Config
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleTabChange("notifications")} className="cursor-pointer">
-                  Notificaciones
-                </DropdownMenuItem>
+                {userRole === "operador" && (
+                  <DropdownMenuItem onClick={() => handleTabChange("qr")} className="cursor-pointer">
+                    QR
+                  </DropdownMenuItem>
+                )}
+                {userRole !== "operador" && (
+                  <>
+                    <DropdownMenuItem onClick={() => handleTabChange("tickets")} className="cursor-pointer">
+                      Espacios
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleTabChange("qr")} className="cursor-pointer">
+                      QR
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleTabChange("history")} className="cursor-pointer">
+                      Historial
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleTabChange("staff")} className="cursor-pointer">
+                      Personal
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleTabChange("settings")} className="cursor-pointer">
+                      Config
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleTabChange("notifications")} className="cursor-pointer">
+                      Notificaciones
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </TabsList>
@@ -293,24 +446,28 @@ function AdminDashboard() {
           <TabsContent value="exit" className="m-0">
             <VehicleExit onUpdate={handleUpdate} />
           </TabsContent>
-          <TabsContent value="tickets" className="m-0">
-            <TicketManagement onUpdate={handleUpdate} />
-          </TabsContent>
           <TabsContent value="qr" className="m-0">
             <QRGenerator onUpdate={handleUpdate} />
           </TabsContent>
-          <TabsContent value="history" className="m-0">
-            <CarHistory onUpdate={handleUpdate} />
-          </TabsContent>
-          <TabsContent value="staff" className="m-0">
-            <StaffManagement onStatsUpdate={handleUpdate} />
-          </TabsContent>
-          <TabsContent value="settings" className="m-0">
-            <CompanySettings onUpdate={handleUpdate} />
-          </TabsContent>
-          <TabsContent value="notifications" className="m-0">
-            <NotificationSettings userType="admin" onUpdate={handleUpdate} />
-          </TabsContent>
+          {userRole !== "operador" && (
+            <>
+              <TabsContent value="tickets" className="m-0">
+                <TicketManagement onUpdate={handleUpdate} />
+              </TabsContent>
+              <TabsContent value="history" className="m-0">
+                <CarHistory onUpdate={handleUpdate} />
+              </TabsContent>
+              <TabsContent value="staff" className="m-0">
+                <StaffManagement onStatsUpdate={handleUpdate} />
+              </TabsContent>
+              <TabsContent value="settings" className="m-0">
+                <CompanySettings onUpdate={handleUpdate} />
+              </TabsContent>
+              <TabsContent value="notifications" className="m-0">
+                <NotificationSettings userType="admin" onUpdate={handleUpdate} />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </div>
     )
@@ -320,7 +477,9 @@ function AdminDashboard() {
     <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Panel de Administración</h1>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+            {userRole === "operador" ? "Panel de Operador" : "Panel de Administración"}
+          </h1>
           <p className="text-lg text-gray-600 dark:text-gray-600">Gestión completa del sistema de estacionamiento</p>
         </div>
         <div className="flex items-center gap-4">
@@ -328,6 +487,14 @@ function AdminDashboard() {
           <Button onClick={refetch} variant="outline" disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Actualizar
+          </Button>
+          <Button
+            onClick={handleLogout}
+            variant="destructive"
+            className="text-white bg-red-600 hover:bg-red-700 border-red-600"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Cerrar Sesión
           </Button>
         </div>
       </div>
@@ -556,9 +723,6 @@ function AdminDashboard() {
         <TabsContent value="payments">
           <PendingPayments onStatsUpdate={handleUpdate} />
         </TabsContent>
-        <TabsContent value="tickets">
-          <TicketManagement onUpdate={handleUpdate} />
-        </TabsContent>
         <TabsContent value="cars">
           <CarRegistration onUpdate={handleUpdate} />
         </TabsContent>
@@ -568,18 +732,25 @@ function AdminDashboard() {
         <TabsContent value="qr">
           <QRGenerator onUpdate={handleUpdate} />
         </TabsContent>
-        <TabsContent value="history">
-          <CarHistory onUpdate={handleUpdate} />
-        </TabsContent>
-        <TabsContent value="staff">
-          <StaffManagement onStatsUpdate={handleUpdate} />
-        </TabsContent>
-        <TabsContent value="settings">
-          <CompanySettings onUpdate={handleUpdate} />
-        </TabsContent>
-        <TabsContent value="notifications">
-          <NotificationSettings userType="admin" onUpdate={handleUpdate} />
-        </TabsContent>
+        {userRole !== "operador" && (
+          <>
+            <TabsContent value="tickets">
+              <TicketManagement onUpdate={handleUpdate} />
+            </TabsContent>
+            <TabsContent value="history">
+              <CarHistory onUpdate={handleUpdate} />
+            </TabsContent>
+            <TabsContent value="staff">
+              <StaffManagement onStatsUpdate={handleUpdate} />
+            </TabsContent>
+            <TabsContent value="settings">
+              <CompanySettings onUpdate={handleUpdate} />
+            </TabsContent>
+            <TabsContent value="notifications">
+              <NotificationSettings userType="admin" onUpdate={handleUpdate} />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
     </div>
   )

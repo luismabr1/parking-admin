@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Parking PWA Client",
+    name: "Parking PWA Admin",
     short_name: "Parking PWA",
     description: "Aplicación cliente para la gestión de estacionamientos PWA",
     start_url: "/",

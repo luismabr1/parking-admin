@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import AdminDashboard from "../admin-dashboard"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import AuthGuard from "@/components/auth/auth-guard"
 
 function DashboardSkeleton() {
   return (
@@ -32,12 +33,14 @@ function DashboardSkeleton() {
 
 export default function AdminDashboardPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto max-w-9xl">
-        <Suspense fallback={<DashboardSkeleton />}>
-          <AdminDashboard />
-        </Suspense>
+    <AuthGuard>
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto max-w-9xl">
+          <Suspense fallback={<DashboardSkeleton />}>
+            <AdminDashboard />
+          </Suspense>
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   )
 }

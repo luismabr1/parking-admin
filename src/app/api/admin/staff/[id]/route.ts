@@ -1,11 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import bcrypt from "bcryptjs"
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { nombre, apellido, email, rol } = await request.json()
-    const { id } = params
+    const { nombre, apellido, email, rol, password } = await request.json()
+    const { id } = await params
 
     if (!nombre || !apellido || !email || !rol) {
       return NextResponse.json({ message: "Todos los campos son requeridos" }, { status: 400 })
@@ -23,9 +24,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ message: "El email ya está registrado" }, { status: 400 })
     }
 
-    const result = await db
-      .collection("staff")
-      .updateOne({ _id: new ObjectId(id) }, { $set: { nombre, apellido, email, rol } })
+    const updateData: any = { nombre, apellido, email, rol }
+
+    if (password && password.trim() !== "") {
+      updateData.password = await bcrypt.hash(password, 12)
+    }
+
+    const result = await db.collection("staff").updateOne({ _id: new ObjectId(id) }, { $set: updateData })
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ message: "Personal no encontrado" }, { status: 404 })
@@ -38,9 +43,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params
+    const { id } = await params
 
     const client = await clientPromise
     const db = client.db("parking")

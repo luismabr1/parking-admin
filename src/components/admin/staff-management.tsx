@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Save, X } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Edit, Trash2, Save, X, Eye, EyeOff } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { StaffMember } from "@/lib/types"
 
 interface StaffManagementProps {
-  onStatsUpdate: () => void
+  onStatsUpdate?: () => void
 }
 
 export default function StaffManagement({ onStatsUpdate }: StaffManagementProps) {
@@ -22,11 +23,14 @@ export default function StaffManagement({ onStatsUpdate }: StaffManagementProps)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     nombre: "",
     apellido: "",
     email: "",
     rol: "operador",
+    password: "",
   })
 
   useEffect(() => {
@@ -52,6 +56,7 @@ export default function StaffManagement({ onStatsUpdate }: StaffManagementProps)
     e.preventDefault()
     try {
       setError("")
+      setSuccess("")
       const url = editingId ? `/api/admin/staff/${editingId}` : "/api/admin/staff"
       const method = editingId ? "PUT" : "POST"
 
@@ -66,8 +71,13 @@ export default function StaffManagement({ onStatsUpdate }: StaffManagementProps)
         throw new Error(errorData.message || "Error al guardar")
       }
 
+      const responseData = await response.json()
+      if (responseData.message) {
+        setSuccess(responseData.message)
+      }
+
       await fetchStaff()
-      onStatsUpdate()
+      if (onStatsUpdate) onStatsUpdate()
       resetForm()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar")
@@ -87,27 +97,30 @@ export default function StaffManagement({ onStatsUpdate }: StaffManagementProps)
       }
 
       await fetchStaff()
-      onStatsUpdate()
+      if (onStatsUpdate) onStatsUpdate()
     } catch (err) {
       setError("Error al eliminar el miembro del personal")
     }
   }
 
   const startEdit = (member: StaffMember) => {
-    setEditingId(member._id)
+    setEditingId(member._id!)
     setFormData({
       nombre: member.nombre,
       apellido: member.apellido,
       email: member.email,
       rol: member.rol,
+      password: "", // Limpiar campo de contraseña al editar
     })
     setShowAddForm(true)
   }
 
   const resetForm = () => {
-    setFormData({ nombre: "", apellido: "", email: "", rol: "operador" })
+    setFormData({ nombre: "", apellido: "", email: "", rol: "operador", password: "" })
     setEditingId(null)
     setShowAddForm(false)
+    setShowPassword(false)
+    setSuccess("")
   }
 
   return (
@@ -124,6 +137,12 @@ export default function StaffManagement({ onStatsUpdate }: StaffManagementProps)
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="mb-4 border-green-200 bg-green-50">
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
             </Alert>
           )}
 
@@ -167,16 +186,43 @@ export default function StaffManagement({ onStatsUpdate }: StaffManagementProps)
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="password">
+                      Contraseña {editingId ? "(dejar vacío para mantener actual)" : "(por defecto: 123456)"}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={formData.password}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
+                        placeholder={editingId ? "Nueva contraseña (opcional)" : "Contraseña (opcional)"}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="rol">Rol</Label>
-                    <select
-                      id="rol"
+                    <Select
                       value={formData.rol}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, rol: e.target.value }))}
-                      className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md"
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, rol: value }))}
                     >
-                      <option value="operador">Operador</option>
-                      <option value="administrador">Administrador</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Seleccionar rol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="operador">Operador</SelectItem>
+                        <SelectItem value="administrador">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="flex gap-3">
@@ -184,7 +230,7 @@ export default function StaffManagement({ onStatsUpdate }: StaffManagementProps)
                       <Save className="h-4 w-4 mr-2" />
                       {editingId ? "Actualizar" : "Guardar"}
                     </Button>
-                    <Button type="button" variant="outline" onClick={resetForm} className="flex-1">
+                    <Button type="button" variant="outline" onClick={resetForm} className="flex-1 bg-transparent">
                       <X className="h-4 w-4 mr-2" />
                       Cancelar
                     </Button>
@@ -214,7 +260,7 @@ export default function StaffManagement({ onStatsUpdate }: StaffManagementProps)
                     <Button onClick={() => startEdit(member)} variant="outline" size="sm">
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button onClick={() => handleDelete(member._id)} variant="destructive" size="sm">
+                    <Button onClick={() => handleDelete(member._id!)} variant="destructive" size="sm">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
