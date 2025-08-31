@@ -17,6 +17,16 @@ interface AuthGuardProps {
   requiredRole?: string
 }
 
+const isDevelopment = () => {
+  return (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.includes("vercel.app") ||
+      process.env.NODE_ENV === "development")
+  )
+}
+
 export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -29,9 +39,11 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
       if (hasRedirected) return
 
       try {
-        console.log("[v0] ========== AUTH GUARD CHECK STARTED ==========")
-        console.log("[v0] Current URL:", window.location.href)
-        console.log("[v0] Required role:", requiredRole)
+        if (isDevelopment()) {
+          console.log("[v0] ========== AUTH GUARD CHECK STARTED ==========")
+          console.log("[v0] Current URL:", window.location.href)
+          console.log("[v0] Required role:", requiredRole)
+        }
 
         const userData = localStorage.getItem("userData")
         const authToken = document.cookie
@@ -39,29 +51,37 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
           .find((row) => row.startsWith("authToken="))
           ?.split("=")[1]
 
-        console.log("[v0] Raw userData from localStorage:", userData)
-        console.log("[v0] Raw authToken from cookie:", authToken)
-        console.log("[v0] userData exists:", !!userData)
-        console.log("[v0] authToken exists:", !!authToken)
-        console.log("[v0] userData type:", typeof userData)
-        console.log("[v0] authToken type:", typeof authToken)
+        if (isDevelopment()) {
+          console.log("[v0] Raw userData from localStorage:", userData)
+          console.log("[v0] Raw authToken from cookie:", authToken)
+          console.log("[v0] userData exists:", !!userData)
+          console.log("[v0] authToken exists:", !!authToken)
+          console.log("[v0] userData type:", typeof userData)
+          console.log("[v0] authToken type:", typeof authToken)
+        }
 
         if (!userData || !authToken) {
-          console.log("[v0] ❌ No auth data found, redirecting to login")
-          console.log("[v0] Missing userData:", !userData)
-          console.log("[v0] Missing authToken:", !authToken)
+          if (isDevelopment()) {
+            console.log("[v0] ❌ No auth data found, redirecting to login")
+            console.log("[v0] Missing userData:", !userData)
+            console.log("[v0] Missing authToken:", !authToken)
+          }
           document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
           localStorage.removeItem("userData")
           hasRedirected = true
-          console.log("[v0] Redirecting to /")
+          if (isDevelopment()) {
+            console.log("[v0] Redirecting to /")
+          }
           router.replace("/")
           return
         }
 
         if (userData === "undefined" || userData === "null" || authToken === "undefined" || authToken === "null") {
-          console.log("[v0] ❌ Invalid auth data (undefined/null strings)")
-          console.log("[v0] userData value:", userData)
-          console.log("[v0] authToken value:", authToken)
+          if (isDevelopment()) {
+            console.log("[v0] ❌ Invalid auth data (undefined/null strings)")
+            console.log("[v0] userData value:", userData)
+            console.log("[v0] authToken value:", authToken)
+          }
           document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
           localStorage.removeItem("userData")
           hasRedirected = true
@@ -70,9 +90,11 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
         }
 
         if (userData.trim() === "" || authToken.trim() === "") {
-          console.log("[v0] ❌ Empty auth data")
-          console.log("[v0] userData length:", userData.length)
-          console.log("[v0] authToken length:", authToken.length)
+          if (isDevelopment()) {
+            console.log("[v0] ❌ Empty auth data")
+            console.log("[v0] userData length:", userData.length)
+            console.log("[v0] authToken length:", authToken.length)
+          }
           document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
           localStorage.removeItem("userData")
           hasRedirected = true
@@ -80,8 +102,10 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
           return
         }
 
-        console.log("[v0] Step 1: Auth data validation passed")
-        console.log("[v0] Step 2: Calling token verification API...")
+        if (isDevelopment()) {
+          console.log("[v0] Step 1: Auth data validation passed")
+          console.log("[v0] Step 2: Calling token verification API...")
+        }
 
         const verifyResponse = await fetch("/api/auth/verify", {
           method: "POST",
@@ -89,13 +113,17 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
           body: JSON.stringify({ token: authToken }),
         })
 
-        console.log("[v0] Verify API response status:", verifyResponse.status)
-        console.log("[v0] Verify API response ok:", verifyResponse.ok)
+        if (isDevelopment()) {
+          console.log("[v0] Verify API response status:", verifyResponse.status)
+          console.log("[v0] Verify API response ok:", verifyResponse.ok)
+        }
 
         if (!verifyResponse.ok) {
-          console.log("[v0] ❌ Token verification failed")
-          const errorText = await verifyResponse.text()
-          console.log("[v0] Verify API error response:", errorText)
+          if (isDevelopment()) {
+            console.log("[v0] ❌ Token verification failed")
+            const errorText = await verifyResponse.text()
+            console.log("[v0] Verify API error response:", errorText)
+          }
           document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
           localStorage.removeItem("userData")
           hasRedirected = true
@@ -104,17 +132,23 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
         }
 
         const { user: verifiedUser } = await verifyResponse.json()
-        console.log("[v0] Step 3: Token verified successfully")
-        console.log("[v0] Verified user:", verifiedUser)
+        if (isDevelopment()) {
+          console.log("[v0] Step 3: Token verified successfully")
+          console.log("[v0] Verified user:", verifiedUser)
+        }
 
         let user: UserData
         try {
           user = JSON.parse(userData)
-          console.log("[v0] Step 4: Successfully parsed user data")
-          console.log("[v0] Parsed user:", user)
+          if (isDevelopment()) {
+            console.log("[v0] Step 4: Successfully parsed user data")
+            console.log("[v0] Parsed user:", user)
+          }
         } catch (parseError) {
-          console.error("[v0] ❌ Failed to parse userData:", parseError)
-          console.error("[v0] userData value that failed to parse:", userData)
+          if (isDevelopment()) {
+            console.error("[v0] ❌ Failed to parse userData:", parseError)
+            console.error("[v0] userData value that failed to parse:", userData)
+          }
           document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
           localStorage.removeItem("userData")
           hasRedirected = true
@@ -123,10 +157,12 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
         }
 
         if (!user || typeof user !== "object" || !user.email || !user.rol) {
-          console.log("[v0] ❌ Invalid user object structure")
-          console.log("[v0] User object:", user)
-          console.log("[v0] Has email:", !!user?.email)
-          console.log("[v0] Has rol:", !!user?.rol)
+          if (isDevelopment()) {
+            console.log("[v0] ❌ Invalid user object structure")
+            console.log("[v0] User object:", user)
+            console.log("[v0] Has email:", !!user?.email)
+            console.log("[v0] Has rol:", !!user?.rol)
+          }
           document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
           localStorage.removeItem("userData")
           hasRedirected = true
@@ -135,23 +171,29 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
         }
 
         if (requiredRole && user.rol !== requiredRole && user.rol !== "administrador") {
-          console.log("[v0] ❌ Insufficient permissions")
-          console.log("[v0] Required role:", requiredRole)
-          console.log("[v0] User role:", user.rol)
+          if (isDevelopment()) {
+            console.log("[v0] ❌ Insufficient permissions")
+            console.log("[v0] Required role:", requiredRole)
+            console.log("[v0] User role:", user.rol)
+          }
           hasRedirected = true
           router.replace("/")
           return
         }
 
-        console.log("[v0] ✅ Auth check successful!")
-        console.log("[v0] User email:", user.email)
-        console.log("[v0] User role:", user.rol)
-        console.log("[v0] ========== AUTH GUARD CHECK COMPLETED ==========")
+        if (isDevelopment()) {
+          console.log("[v0] ✅ Auth check successful!")
+          console.log("[v0] User email:", user.email)
+          console.log("[v0] User role:", user.rol)
+          console.log("[v0] ========== AUTH GUARD CHECK COMPLETED ==========")
+        }
         setUserRole(user.rol)
         setIsAuthenticated(true)
       } catch (error) {
-        console.error("[v0] ========== AUTH GUARD ERROR ==========")
-        console.error("[v0] Auth check error:", error)
+        if (isDevelopment()) {
+          console.error("[v0] ========== AUTH GUARD ERROR ==========")
+          console.error("[v0] Auth check error:", error)
+        }
         document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
         localStorage.removeItem("userData")
         hasRedirected = true
