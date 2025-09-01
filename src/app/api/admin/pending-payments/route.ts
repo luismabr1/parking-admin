@@ -31,6 +31,7 @@ export async function GET() {
         montoPagado: 1,
         montoPagadoUsd: 1,
         montoCalculado: 1,
+        montoCalculadoTotal: 1, // Added to include total calculated amount
         tasaCambioUsada: 1,
         fechaPago: 1,
         estado: 1,
@@ -39,12 +40,14 @@ export async function GET() {
         tiempoSalidaEstimado: 1,
         carInfo: 1,
         urlImagenComprobante: 1,
+        isMultiplePayment: 1, // Added to include multiple payment flag
+        ticketQuantity: 1, // Added to include number of tickets
       })
       .toArray()
 
     console.log(`✅ Encontrados ${pendingPayments.length} pagos pendientes`)
 
-    // Debug: verificar comprobantes
+    // Debug: verificar comprobantes y campos de pago múltiple
     pendingPayments.forEach((payment) => {
       console.log(`🔍 Pago ${payment.codigoTicket} - Comprobante: ${payment.urlImagenComprobante ? "SÍ" : "NO"}`)
       console.log(`📋 Datos del pago:`, {
@@ -53,6 +56,8 @@ export async function GET() {
         banco: payment.banco,
         montoPagado: payment.montoPagado,
         estado: payment.estado,
+        isMultiplePayment: payment.isMultiplePayment ?? false,
+        ticketQuantity: payment.ticketQuantity ?? 1,
       })
     })
 

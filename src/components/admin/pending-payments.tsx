@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Calculator,
   TrendingUp,
+  AlertCircle,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import ExitTimeDisplay from "./exit-time-display"
@@ -33,6 +34,9 @@ interface PaymentInfo {
   numeroIdentidad: string
   montoPagado: number
   montoPagadoUsd?: number
+  montoCalculado?: number
+  montoCalculadoTotal?: number
+  tasaCambioUsada?: number
   fechaPago: string
   estado: string
   estadoValidacion: string
@@ -49,9 +53,9 @@ interface PaymentInfo {
   }
   tiempoSalida?: string
   tiempoSalidaEstimado?: string
-  montoCalculado?: number
-  tasaCambioUsada?: number
   duracionMinutos?: number
+  isMultiplePayment?: boolean
+  ticketQuantity?: number
 }
 
 interface CompanySettings {
@@ -135,29 +139,53 @@ const PendingPaymentCard: React.FC<{
 
     if (isElectronicPayment) {
       const tasaCambio = payment.tasaCambioUsada || companySettings.tasaCambio || 36
-      const montoBs = montoUSD * tasaCambio
+      const ticketQuantity = payment.isMultiplePayment ? payment.ticketQuantity || 1 : 1
+      const montoBs = montoUSD * ticketQuantity * tasaCambio
 
       return {
-        formula: `$${tarifaPorHora}/hora × ${horas} hora${horas > 1 ? "s" : ""} × ${tasaCambio} Bs/$`,
-        calculation: `$${montoUSD.toFixed(2)} × ${tasaCambio} = Bs. ${montoBs.toLocaleString("es-VE", {
+        formula: `$${tarifaPorHora}/hora × ${horas} hora${horas > 1 ? "s" : ""} × ${ticketQuantity} ticket${ticketQuantity > 1 ? "s" : ""} × ${tasaCambio} Bs/$`,
+        calculation: `$${montoUSD.toFixed(2)} × ${ticketQuantity} × ${tasaCambio} = Bs. ${montoBs.toLocaleString("es-VE", {
           minimumFractionDigits: 2,
         })}`,
         result: `Bs. ${montoBs.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`,
-        usdReference: `($${montoUSD.toFixed(2)} USD)`,
+        usdReference: `($${(montoUSD * ticketQuantity).toFixed(2)} USD)`,
         exchangeRate: tasaCambio,
       }
     } else {
+      const ticketQuantity = payment.isMultiplePayment ? payment.ticketQuantity || 1 : 1
+      const montoTotalUSD = montoUSD * ticketQuantity
       return {
-        formula: `$${tarifaPorHora}/hora × ${horas} hora${horas > 1 ? "s" : ""}`,
-        calculation: `$${tarifaPorHora} × ${horas} = $${montoUSD.toFixed(2)}`,
-        result: `$${montoUSD.toFixed(2)} USD`,
+        formula: `$${tarifaPorHora}/hora × ${horas} hora${horas > 1 ? "s" : ""} × ${ticketQuantity} ticket${ticketQuantity > 1 ? "s" : ""}`,
+        calculation: `$${tarifaPorHora} × ${horas} × ${ticketQuantity} = $${montoTotalUSD.toFixed(2)}`,
+        result: `$${montoTotalUSD.toFixed(2)} USD`,
         usdReference: null,
         exchangeRate: null,
       }
     }
   }
 
+  const validatePaymentAmount = () => {
+    const isElectronicPayment = ["pago_movil", "transferencia"].includes(payment.tipoPago?.toLowerCase())
+    const ticketQuantity = payment.isMultiplePayment ? payment.ticketQuantity || 1 : 1
+    const montoCalculado = payment.montoCalculado || companySettings.tarifaPorHora || 2.0
+    const tasaCambio = payment.tasaCambioUsada || companySettings.tasaCambio || 36
+
+    const expectedMonto = isElectronicPayment
+      ? montoCalculado * ticketQuantity * tasaCambio
+      : montoCalculado * ticketQuantity
+
+    const isValid = Math.abs(payment.montoPagado - expectedMonto) < 0.01 // Allow small float differences
+    return {
+      isValid,
+      expectedMonto,
+      message: isValid
+        ? `Monto correcto para ${ticketQuantity} ticket${ticketQuantity > 1 ? "s" : ""}`
+        : `Monto incorrecto: se esperaba ${formatAmount(expectedMonto, isElectronicPayment)} para ${ticketQuantity} ticket${ticketQuantity > 1 ? "s" : ""}`
+    }
+  }
+
   const calculationInfo = getCalculationFormula()
+  const amountValidation = validatePaymentAmount()
   const isElectronicPayment = ["pago_movil", "transferencia"].includes(payment.tipoPago?.toLowerCase())
 
   return (
@@ -169,9 +197,16 @@ const PendingPaymentCard: React.FC<{
               <CreditCard className="h-5 w-5" />
               Ticket: {payment.codigoTicket}
             </CardTitle>
-            <Badge className={getPaymentTypeColor(payment.tipoPago)} variant="secondary">
-              {formatPaymentType(payment.tipoPago)}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {payment.isMultiplePayment && (
+                <Badge variant="outline" className="bg-purple-100 text-purple-800">
+                  {payment.ticketQuantity} Ticket{payment.ticketQuantity && payment.ticketQuantity > 1 ? "s" : ""}
+                </Badge>
+              )}
+              <Badge className={getPaymentTypeColor(payment.tipoPago)} variant="secondary">
+                {formatPaymentType(payment.tipoPago)}
+              </Badge>
+            </div>
           </div>
           {(payment.tiempoSalida || payment.tiempoSalidaEstimado) && (
             <div className="mt-2">
@@ -233,6 +268,33 @@ const PendingPaymentCard: React.FC<{
                 </div>
               </div>
             </div>
+            {payment.isMultiplePayment && (
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calculator className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm font-medium text-purple-800">Detalles de Pago Múltiple:</span>
+                </div>
+                <div className="text-sm space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Número de Tickets:</span>
+                    <span className="font-medium text-green-600">{payment.ticketQuantity || 1}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700">Validación de Monto:</span>
+                    <div className="flex items-center gap-2">
+                      <span className={amountValidation.isValid ? "text-green-600" : "text-red-600 font-medium"}>
+                        {amountValidation.message}
+                      </span>
+                      {amountValidation.isValid ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {isElectronicPayment && calculationInfo.exchangeRate && (
               <div className="bg-yellow-50 p-3 rounded-lg">
                 <div className="flex items-center gap-2 mb-1">
@@ -369,6 +431,19 @@ const PendingPaymentCard: React.FC<{
                     </p>
                   </>
                 )}
+                {payment.isMultiplePayment && (
+                  <>
+                    <p>
+                      <strong>Pago Múltiple:</strong> {payment.ticketQuantity} ticket{payment.ticketQuantity && payment.ticketQuantity > 1 ? "s" : ""}
+                    </p>
+                    <p>
+                      <strong>Validación de Monto:</strong>{" "}
+                      <span className={amountValidation.isValid ? "text-green-600" : "text-red-600"}>
+                        {amountValidation.message}
+                      </span>
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -461,7 +536,7 @@ const PendingPayments: React.FC<PendingPaymentsProps> = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            pagoId: paymentId, // Changed from paymentId to pagoId to match backend expectation
+            pagoId: paymentId,
             currentPrecioHora: companySettings.tarifaPorHora || 2.0,
             currentTasaCambio: companySettings.tasaCambio || 36.0,
           }),
@@ -515,7 +590,7 @@ const PendingPayments: React.FC<PendingPaymentsProps> = () => {
         const response = await fetch("/api/admin/reject-payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pagoId: paymentId }), // Changed from paymentId to pagoId
+          body: JSON.stringify({ pagoId: paymentId }),
         })
 
         if (response.ok) {
