@@ -22,6 +22,16 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
 
+const isDevelopment = () => {
+  return (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.includes("vercel.app") ||
+      process.env.NODE_ENV === "development")
+  )
+}
+
 function AdminDashboard() {
   const { stats, isLoading, isConnected, connectionStatus, error, refetch } = useRealTimeStats()
   const [showStats, setShowStats] = useState(false)
@@ -29,133 +39,71 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("cars")
   const [visibleTabs, setVisibleTabs] = useState<string[]>([])
   const [userRole, setUserRole] = useState<string>("")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [authLoading, setAuthLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    const checkAuth = () => {
+    const getUserRole = () => {
       const userData = localStorage.getItem("userData")
-      const authToken = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("authToken="))
-        ?.split("=")[1]
-
-      console.log("[v0] Auth check - userData exists:", !!userData)
-      console.log("[v0] Auth check - authToken exists:", !!authToken)
-
-      if (!userData || !authToken) {
-        console.log("[v0] No auth data found, redirecting to login")
-        localStorage.removeItem("userData")
-        document.cookie = "authToken=; Path=/; Max-Age=0"
-        router.push("/")
-        return
-      }
-
-      try {
-        const user = JSON.parse(userData)
-        if (!user || typeof user !== "object" || !user.email || !user.rol) {
-          console.log("[v0] Invalid user object structure:", user)
-          localStorage.removeItem("userData")
-          document.cookie = "authToken=; Path=/; Max-Age=0"
-          router.push("/")
-          return
+      if (userData) {
+        try {
+          const user = JSON.parse(userData)
+          setUserRole(user.rol || "")
+          console.log("[v0] AdminDashboard: User role set to:", user.rol)
+        } catch (error) {
+          console.log("[v0] AdminDashboard: Error parsing userData:", error)
+          setUserRole("")
         }
-        setUserRole(user.rol || "")
-        setIsAuthenticated(true)
-      } catch (error) {
-        console.error("[v0] Error parsing user data:", error)
-        localStorage.removeItem("userData")
-        document.cookie = "authToken=; Path=/; Max-Age=0"
-        router.push("/")
-      } finally {
-        setAuthLoading(false)
       }
     }
 
-    checkAuth()
-  }, [router])
+    getUserRole()
+  }, [])
 
   const handleTabChange = (value: string) => {
     setActiveTab(value)
   }
 
   const handleLogout = async () => {
-    console.log("[v0] ========== LOGOUT PROCESS STARTED ==========")
-    console.log("[v0] Current localStorage userData:", localStorage.getItem("userData"))
-    console.log(
-      "[v0] Current authToken cookie:",
-      document.cookie.split("; ").find((row) => row.startsWith("authToken=")),
-    )
-
     try {
-      console.log("[v0] Step 1: Clearing localStorage...")
-      localStorage.removeItem("userData")
-      localStorage.removeItem("authToken")
-      console.log("[v0] localStorage cleared - userData:", localStorage.getItem("userData"))
-      console.log("[v0] localStorage cleared - authToken:", localStorage.getItem("authToken"))
+      console.log("[v0] AdminDashboard: Starting logout process...")
+      localStorage.clear()
 
-      console.log("[v0] Step 2: Clearing cookies...")
-      document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-      document.cookie = "userData=; Path=/; Max-Age=0; SameSite=Strict"
-      console.log("[v0] Cookies cleared - current cookies:", document.cookie)
+      // Clear all possible cookies
+      const cookiesToClear = ["authToken", "userData", "token", "user"]
+      cookiesToClear.forEach((cookieName) => {
+        document.cookie = `${cookieName}=; Path=/; Max-Age=0; SameSite=Strict`
+        document.cookie = `${cookieName}=; Path=/; Max-Age=0; SameSite=Strict; Secure`
+      })
 
-      console.log("[v0] Step 3: Clearing browser caches...")
       if ("caches" in window) {
         const cacheNames = await caches.keys()
-        console.log("[v0] Found caches:", cacheNames)
-        await Promise.all(
-          cacheNames.map(async (cacheName) => {
-            console.log("[v0] Clearing cache:", cacheName)
-            await caches.delete(cacheName)
-          }),
-        )
-        console.log("[v0] All caches cleared")
-      } else {
-        console.log("[v0] Cache API not supported in this browser")
+        await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)))
       }
 
-      console.log("[v0] Step 4: Unregistering service workers...")
       if ("serviceWorker" in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations()
-        console.log("[v0] Found service workers:", registrations.length)
-        await Promise.all(
-          registrations.map(async (registration) => {
-            console.log("[v0] Unregistering service worker:", registration.scope)
-            await registration.unregister()
-          }),
-        )
-        console.log("[v0] All service workers unregistered")
-      } else {
-        console.log("[v0] Service Worker API not supported in this browser")
+        await Promise.all(registrations.map((registration) => registration.unregister()))
       }
 
-      console.log("[v0] Step 5: Calling logout API...")
       await fetch("/api/auth/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       })
-      console.log("[v0] Logout API called successfully")
 
-      console.log("[v0] Step 6: Final verification before redirect...")
-      console.log("[v0] Final localStorage userData:", localStorage.getItem("userData"))
-      console.log(
-        "[v0] Final authToken cookie:",
-        document.cookie.split("; ").find((row) => row.startsWith("authToken=")),
-      )
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      console.log("[v0] AdminDashboard: Logout completed, redirecting...")
 
-      console.log("[v0] Step 7: Performing hard redirect to /")
-      console.log("[v0] ========== LOGOUT PROCESS COMPLETED ==========")
-      window.location.href = "/"
+      window.location.replace("/")
     } catch (error) {
-      console.error("[v0] ========== LOGOUT ERROR ==========")
-      console.error("[v0] Error during logout:", error)
+      console.log("[v0] AdminDashboard: Logout error, using fallback:", error)
       // Fallback to basic logout if cache clearing fails
-      localStorage.removeItem("userData")
-      document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-      document.cookie = "userData=; Path=/; Max-Age=0; SameSite=Strict"
-      console.log("[v0] Fallback logout completed, redirecting...")
-      window.location.href = "/"
+      localStorage.clear()
+      const cookiesToClear = ["authToken", "userData", "token", "user"]
+      cookiesToClear.forEach((cookieName) => {
+        document.cookie = `${cookieName}=; Path=/; Max-Age=0; SameSite=Strict`
+        document.cookie = `${cookieName}=; Path=/; Max-Age=0; SameSite=Strict; Secure`
+      })
+      window.location.replace("/")
     }
   }
 
@@ -241,21 +189,6 @@ function AdminDashboard() {
         <span className="text-sm">{connectionStatus}</span>
       </div>
     )
-  }
-
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Verificando autenticación...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null
   }
 
   if (isMobile) {

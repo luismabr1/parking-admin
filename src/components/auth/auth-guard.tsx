@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import type React from "react"
 import { useRouter } from "next/navigation"
 import { RefreshCw } from "lucide-react"
@@ -17,194 +17,142 @@ interface AuthGuardProps {
   requiredRole?: string
 }
 
-const isDevelopment = () => {
-  return (
-    typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1" ||
-      window.location.hostname.includes("vercel.app") ||
-      process.env.NODE_ENV === "development")
-  )
-}
+let isAuthCheckInProgress = false
+let authCheckPromise: Promise<boolean> | null = null
+let instanceCounter = 0
 
 export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userRole, setUserRole] = useState<string>("")
   const router = useRouter()
-  let hasRedirected = false
+  const isMountedRef = useRef(true)
+  const instanceIdRef = useRef(++instanceCounter)
 
   useEffect(() => {
-    const checkAuth = async () => {
-      if (hasRedirected) return
+    isMountedRef.current = true
+    const instanceId = instanceIdRef.current
+
+    console.log(`[v0] AuthGuard Instance ${instanceId}: Starting useEffect`)
+
+    const checkAuth = async (): Promise<boolean> => {
+      if (isAuthCheckInProgress && authCheckPromise) {
+        console.log(`[v0] AuthGuard Instance ${instanceId}: Auth check already in progress, waiting...`)
+        return await authCheckPromise
+      }
+
+      console.log(`[v0] AuthGuard Instance ${instanceId}: Starting new auth check`)
+      isAuthCheckInProgress = true
+      authCheckPromise = performAuthCheck(instanceId)
 
       try {
-        if (isDevelopment()) {
-          console.log("[v0] ========== AUTH GUARD CHECK STARTED ==========")
-          console.log("[v0] Current URL:", window.location.href)
-          console.log("[v0] Required role:", requiredRole)
+        const result = await authCheckPromise
+        return result
+      } finally {
+        isAuthCheckInProgress = false
+        authCheckPromise = null
+      }
+    }
+
+    const performAuthCheck = async (instanceId: number): Promise<boolean> => {
+      try {
+        console.log(`[v0] AuthGuard Instance ${instanceId}: Starting auth check...`)
+
+        if (!isMountedRef.current) {
+          console.log(`[v0] AuthGuard Instance ${instanceId}: Component unmounted, aborting check`)
+          return false
         }
 
         const userData = localStorage.getItem("userData")
-        const authToken = document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("authToken="))
-          ?.split("=")[1]
+        console.log(`[v0] AuthGuard Instance ${instanceId}: Raw userData from localStorage:`, userData)
 
-        if (isDevelopment()) {
-          console.log("[v0] Raw userData from localStorage:", userData)
-          console.log("[v0] Raw authToken from cookie:", authToken)
-          console.log("[v0] userData exists:", !!userData)
-          console.log("[v0] authToken exists:", !!authToken)
-          console.log("[v0] userData type:", typeof userData)
-          console.log("[v0] authToken type:", typeof authToken)
-        }
+        if (!userData || userData === "null" || userData === "undefined" || userData.trim() === "") {
+          console.log(`[v0] AuthGuard Instance ${instanceId}: No valid auth data found, redirecting to login`)
 
-        if (!userData || !authToken) {
-          if (isDevelopment()) {
-            console.log("[v0] ❌ No auth data found, redirecting to login")
-            console.log("[v0] Missing userData:", !userData)
-            console.log("[v0] Missing authToken:", !authToken)
+          if (isMountedRef.current) {
+            localStorage.clear()
+            document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
+            router.replace("/")
           }
-          document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-          localStorage.removeItem("userData")
-          hasRedirected = true
-          if (isDevelopment()) {
-            console.log("[v0] Redirecting to /")
-          }
-          router.replace("/")
-          return
-        }
-
-        if (userData === "undefined" || userData === "null" || authToken === "undefined" || authToken === "null") {
-          if (isDevelopment()) {
-            console.log("[v0] ❌ Invalid auth data (undefined/null strings)")
-            console.log("[v0] userData value:", userData)
-            console.log("[v0] authToken value:", authToken)
-          }
-          document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-          localStorage.removeItem("userData")
-          hasRedirected = true
-          router.replace("/")
-          return
-        }
-
-        if (userData.trim() === "" || authToken.trim() === "") {
-          if (isDevelopment()) {
-            console.log("[v0] ❌ Empty auth data")
-            console.log("[v0] userData length:", userData.length)
-            console.log("[v0] authToken length:", authToken.length)
-          }
-          document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-          localStorage.removeItem("userData")
-          hasRedirected = true
-          router.replace("/")
-          return
-        }
-
-        if (isDevelopment()) {
-          console.log("[v0] Step 1: Auth data validation passed")
-          console.log("[v0] Step 2: Calling token verification API...")
-        }
-
-        const verifyResponse = await fetch("/api/auth/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: authToken }),
-        })
-
-        if (isDevelopment()) {
-          console.log("[v0] Verify API response status:", verifyResponse.status)
-          console.log("[v0] Verify API response ok:", verifyResponse.ok)
-        }
-
-        if (!verifyResponse.ok) {
-          if (isDevelopment()) {
-            console.log("[v0] ❌ Token verification failed")
-            const errorText = await verifyResponse.text()
-            console.log("[v0] Verify API error response:", errorText)
-          }
-          document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-          localStorage.removeItem("userData")
-          hasRedirected = true
-          router.replace("/")
-          return
-        }
-
-        const { user: verifiedUser } = await verifyResponse.json()
-        if (isDevelopment()) {
-          console.log("[v0] Step 3: Token verified successfully")
-          console.log("[v0] Verified user:", verifiedUser)
+          return false
         }
 
         let user: UserData
         try {
           user = JSON.parse(userData)
-          if (isDevelopment()) {
-            console.log("[v0] Step 4: Successfully parsed user data")
-            console.log("[v0] Parsed user:", user)
-          }
+          console.log(`[v0] AuthGuard Instance ${instanceId}: Parsed user data:`, user)
         } catch (parseError) {
-          if (isDevelopment()) {
-            console.error("[v0] ❌ Failed to parse userData:", parseError)
-            console.error("[v0] userData value that failed to parse:", userData)
+          console.log(`[v0] AuthGuard Instance ${instanceId}: Failed to parse userData:`, parseError)
+
+          if (isMountedRef.current) {
+            localStorage.clear()
+            document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
+            router.replace("/")
           }
-          document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-          localStorage.removeItem("userData")
-          hasRedirected = true
-          router.replace("/")
-          return
+          return false
         }
 
-        if (!user || typeof user !== "object" || !user.email || !user.rol) {
-          if (isDevelopment()) {
-            console.log("[v0] ❌ Invalid user object structure")
-            console.log("[v0] User object:", user)
-            console.log("[v0] Has email:", !!user?.email)
-            console.log("[v0] Has rol:", !!user?.rol)
+        if (!user || typeof user !== "object" || !user.email || !user.rol || !user._id) {
+          console.log(`[v0] AuthGuard Instance ${instanceId}: Missing required user fields:`, {
+            hasEmail: !!user?.email,
+            hasRol: !!user?.rol,
+            hasId: !!user?._id,
+          })
+
+          if (isMountedRef.current) {
+            localStorage.clear()
+            document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
+            router.replace("/")
           }
-          document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-          localStorage.removeItem("userData")
-          hasRedirected = true
-          router.replace("/")
-          return
+          return false
         }
+
+        console.log(`[v0] AuthGuard Instance ${instanceId}: Auth validation successful for user:`, user.email)
 
         if (requiredRole && user.rol !== requiredRole && user.rol !== "administrador") {
-          if (isDevelopment()) {
-            console.log("[v0] ❌ Insufficient permissions")
-            console.log("[v0] Required role:", requiredRole)
-            console.log("[v0] User role:", user.rol)
+          console.log(
+            `[v0] AuthGuard Instance ${instanceId}: Insufficient permissions. Required:`,
+            requiredRole,
+            "User has:",
+            user.rol,
+          )
+
+          if (isMountedRef.current) {
+            router.replace("/")
           }
-          hasRedirected = true
-          router.replace("/")
-          return
+          return false
         }
 
-        if (isDevelopment()) {
-          console.log("[v0] ✅ Auth check successful!")
-          console.log("[v0] User email:", user.email)
-          console.log("[v0] User role:", user.rol)
-          console.log("[v0] ========== AUTH GUARD CHECK COMPLETED ==========")
+        if (isMountedRef.current) {
+          console.log(`[v0] AuthGuard Instance ${instanceId}: Setting authenticated state to true`)
+          setUserRole(user.rol)
+          setIsAuthenticated(true)
         }
-        setUserRole(user.rol)
-        setIsAuthenticated(true)
+        return true
       } catch (error) {
-        if (isDevelopment()) {
-          console.error("[v0] ========== AUTH GUARD ERROR ==========")
-          console.error("[v0] Auth check error:", error)
+        console.error(`[v0] AuthGuard Instance ${instanceId}: Auth check error:`, error)
+
+        if (isMountedRef.current) {
+          localStorage.clear()
+          document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
+          router.replace("/")
         }
-        document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-        localStorage.removeItem("userData")
-        hasRedirected = true
-        router.replace("/")
+        return false
       } finally {
-        setIsLoading(false)
+        if (isMountedRef.current) {
+          console.log(`[v0] AuthGuard Instance ${instanceId}: Setting loading to false`)
+          setIsLoading(false)
+        }
       }
     }
 
     checkAuth()
-  }, [router, requiredRole])
+
+    return () => {
+      console.log(`[v0] AuthGuard Instance ${instanceId}: Cleanup called`)
+      isMountedRef.current = false
+    }
+  }, []) // Removed router and requiredRole from dependency array to prevent re-runs
 
   if (isLoading) {
     return (

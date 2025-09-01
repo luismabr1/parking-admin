@@ -1,4 +1,3 @@
-// src/app/admin/admin-login.tsx
 "use client"
 
 import type React from "react"
@@ -28,14 +27,20 @@ export default function AdminLogin() {
       console.log("[v0] Current localStorage userData before clear:", localStorage.getItem("userData"))
       console.log(
         "[v0] Current authToken cookie before clear:",
-        document.cookie.split("; ").find((row) => row.startsWith("authToken=")),
+        document.cookie.split(";").find((c) => c.trim().startsWith("authToken=")),
       )
 
       console.log("[v0] Step 1: Pre-login cleanup...")
-      localStorage.removeItem("authToken")
-      localStorage.removeItem("userData")
-      document.cookie = "authToken=; Path=/; Max-Age=0; SameSite=Strict"
-      document.cookie = "userData=; Path=/; Max-Age=0; SameSite=Strict"
+
+      localStorage.clear()
+
+      const cookiesToClear = ["authToken", "userData", "token", "user"]
+      cookiesToClear.forEach((cookieName) => {
+        document.cookie = `${cookieName}=; Path=/; Max-Age=0; SameSite=Strict`
+        document.cookie = `${cookieName}=; Path=/; Max-Age=0; SameSite=Strict; Secure`
+        document.cookie = `${cookieName}=; Path=/; Max-Age=0`
+      })
+
       console.log("[v0] Pre-login cleanup completed")
       console.log("[v0] localStorage after cleanup - userData:", localStorage.getItem("userData"))
       console.log("[v0] localStorage after cleanup - authToken:", localStorage.getItem("authToken"))
@@ -48,19 +53,14 @@ export default function AdminLogin() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
+        credentials: "include",
       })
 
       console.log("[v0] API response status:", response.status)
       console.log("[v0] API response ok:", response.ok)
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error("[v0] Login API error:", errorData)
-        throw new Error(errorData.message || "Error de autenticación")
-      }
-
-      const data = await response.json()
       console.log("[v0] Step 3: Processing API response...")
+      const data = await response.json()
       console.log("[v0] API response data:", {
         hasAuthToken: !!data.authToken,
         hasUserData: !!data.userData,
@@ -68,28 +68,23 @@ export default function AdminLogin() {
         userData: data.userData,
       })
 
-      // Validate userData
-      if (!data.userData || typeof data.userData !== "object" || !data.userData.email || !data.userData.rol) {
-        console.error("[v0] Invalid user data structure:", data.userData)
-        throw new Error("Invalid user data received from server")
+      if (!response.ok) {
+        throw new Error(data.message || "Error de autenticación")
       }
 
       console.log("[v0] Step 4: Setting localStorage...")
-      // Set localStorage and verify
-      localStorage.setItem("authToken", data.authToken)
+      if (!data.userData || typeof data.userData !== "object" || !data.userData.email || !data.userData.rol) {
+        throw new Error("Invalid user data received from server")
+      }
+
       localStorage.setItem("userData", JSON.stringify(data.userData))
-
-      console.log("[v0] Stored authToken:", localStorage.getItem("authToken"))
       console.log("[v0] Stored userData:", localStorage.getItem("userData"))
+      console.log("[v0] AuthToken is now stored in httpOnly cookie")
 
-      // Verify data was stored correctly
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
       const storedUserData = localStorage.getItem("userData")
-      const storedAuthToken = localStorage.getItem("authToken")
-
-      if (!storedUserData || !storedAuthToken) {
-        console.error("[v0] Failed to store data in localStorage!")
-        console.error("[v0] storedUserData:", storedUserData)
-        console.error("[v0] storedAuthToken:", storedAuthToken)
+      if (!storedUserData) {
         throw new Error("Failed to store authentication data")
       }
 
@@ -97,23 +92,18 @@ export default function AdminLogin() {
         const parsedUserData = JSON.parse(storedUserData)
         console.log("[v0] Successfully parsed stored userData:", parsedUserData)
       } catch (parseError) {
-        console.error("[v0] Failed to parse stored userData:", parseError)
         throw new Error("Stored user data is corrupted")
       }
 
       console.log("[v0] Step 5: Preparing redirect...")
-      // Ensure localStorage is updated before redirect
-      await new Promise((resolve) => setTimeout(resolve, 100)) // Give more time for localStorage to persist
-
       console.log("[v0] Final verification before redirect:")
       console.log("[v0] Final localStorage userData:", localStorage.getItem("userData"))
-      console.log("[v0] Final localStorage authToken:", localStorage.getItem("authToken"))
-
+      console.log("[v0] AuthToken is in httpOnly cookie (not accessible via JS)")
       console.log("[v0] Step 6: Redirecting to dashboard...")
+
+      router.replace("/admin/dashboard")
       console.log("[v0] ========== LOGIN PROCESS COMPLETED ==========")
-      router.push("/admin/dashboard")
     } catch (err) {
-      console.error("[v0] ========== LOGIN ERROR ==========")
       console.error("[v0] Login error:", err)
       setError(err instanceof Error ? err.message : "Error de autenticación")
     } finally {
