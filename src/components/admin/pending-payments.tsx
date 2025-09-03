@@ -42,6 +42,7 @@ interface PaymentInfo {
   estadoValidacion: string
   tipoPago: string
   urlImagenComprobante?: string
+  urlImagenTickets?: string // Nuevo campo para la imagen de tickets
   carInfo: {
     placa: string
     marca: string
@@ -75,8 +76,8 @@ const PendingPaymentCard: React.FC<{
   isProcessing: boolean
 }> = React.memo(({ payment, onValidate, onReject, companySettings, isProcessing }) => {
   const [showReceiptModal, setShowReceiptModal] = useState(false)
+  const [showTicketsModal, setShowTicketsModal] = useState(false) // Nuevo estado para el modal de tickets
 
-  // Validation: Check that payment._id is present
   if (!payment._id) {
     console.warn("⚠️ [PENDING-PAYMENT-CARD] Payment object missing _id:", payment)
     return <div>Error: Datos de pago inválidos (falta _id)</div>
@@ -174,7 +175,7 @@ const PendingPaymentCard: React.FC<{
       ? montoCalculado * ticketQuantity * tasaCambio
       : montoCalculado * ticketQuantity
 
-    const isValid = Math.abs(payment.montoPagado - expectedMonto) < 0.01 // Allow small float differences
+    const isValid = Math.abs(payment.montoPagado - expectedMonto) < 0.01
     return {
       isValid,
       expectedMonto,
@@ -199,9 +200,10 @@ const PendingPaymentCard: React.FC<{
             </CardTitle>
             <div className="flex items-center gap-2">
               {payment.isMultiplePayment && (
-                <Badge variant="outline" className="bg-purple-100 text-purple-800">
-                  {payment.ticketQuantity} Ticket{payment.ticketQuantity && payment.ticketQuantity > 1 ? "s" : ""}
-                </Badge>
+                <div className="bg-purple-200 text-purple-800 text-sm font-semibold px-3 py-1 rounded-full flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  Pago Múltiple ({payment.ticketQuantity} Tickets)
+                </div>
               )}
               <Badge className={getPaymentTypeColor(payment.tipoPago)} variant="secondary">
                 {formatPaymentType(payment.tipoPago)}
@@ -359,6 +361,21 @@ const PendingPaymentCard: React.FC<{
                   </Button>
                 </div>
               )}
+              {payment.isMultiplePayment && payment.urlImagenTickets && (
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-3 w-3" />
+                  <span className="text-gray-600">Tickets:</span>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-blue-600 hover:text-blue-800"
+                    onClick={() => setShowTicketsModal(true)}
+                  >
+                    Ver tickets
+                    <ExternalLink className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <Clock className="h-3 w-3" />
@@ -449,6 +466,63 @@ const PendingPaymentCard: React.FC<{
           </div>
         </div>
       )}
+      {showTicketsModal && payment.urlImagenTickets && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl max-h-[90vh] overflow-auto">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Tickets de Pago - {payment.codigoTicket}</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowTicketsModal(false)}>
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4">
+              <img
+                src={payment.urlImagenTickets || "/placeholder.svg"}
+                alt={`Tickets de pago ${payment.codigoTicket}`}
+                className="w-full h-auto rounded-lg"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.src = "/placeholder.svg?height=400&width=300&text=Error+cargando+imagen"
+                }}
+              />
+              <div className="mt-4 text-sm text-gray-600 space-y-2">
+                <p>
+                  <strong>Referencia:</strong> {payment.referenciaTransferencia}
+                </p>
+                <p>
+                  <strong>Banco:</strong> {payment.banco}
+                </p>
+                <p>
+                  <strong>Monto:</strong> {formatAmount(payment.montoPagado, true)}
+                </p>
+                {isElectronicPayment && (
+                  <>
+                    <p>
+                      <strong>Equivalente:</strong> {formatAmount(payment.montoPagado, false)}
+                    </p>
+                    <p>
+                      <strong>Tasa:</strong> {payment.tasaCambioUsada?.toLocaleString("es-VE")} Bs/$
+                    </p>
+                  </>
+                )}
+                {payment.isMultiplePayment && (
+                  <>
+                    <p>
+                      <strong>Pago Múltiple:</strong> {payment.ticketQuantity} ticket{payment.ticketQuantity && payment.ticketQuantity > 1 ? "s" : ""}
+                    </p>
+                    <p>
+                      <strong>Validación de Monto:</strong>{" "}
+                      <span className={amountValidation.isValid ? "text-green-600" : "text-red-600"}>
+                        {amountValidation.message}
+                      </span>
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 })
@@ -493,11 +567,10 @@ const PendingPayments: React.FC<PendingPaymentsProps> = () => {
       if (response.ok) {
         const data = await response.json()
         console.log("🔍 [PENDING-PAYMENTS] Payments received:", data)
-        // Validation: Ensure each payment has _id
         const validPayments = data.map((p) => {
           if (!p._id) {
             console.warn("⚠️ [PENDING-PAYMENTS] Payment missing _id, using codigoTicket as fallback:", p.codigoTicket)
-            return { ...p, _id: p.codigoTicket } // Temporary fallback
+            return { ...p, _id: p.codigoTicket }
           }
           return p
         })
@@ -518,7 +591,6 @@ const PendingPayments: React.FC<PendingPaymentsProps> = () => {
 
   const validatePayment = useCallback(
     async (paymentId: string) => {
-      // Validation: Ensure paymentId is valid
       if (!paymentId) {
         console.error("❌ [PENDING-PAYMENTS] Invalid paymentId:", paymentId)
         toast({
@@ -549,7 +621,6 @@ const PendingPayments: React.FC<PendingPaymentsProps> = () => {
             description: result.message || "El pago ha sido validado exitosamente",
           })
           await fetchPayments()
-          // Stats will update automatically via SSE
         } else {
           const errorData = await response.json()
           throw new Error(errorData.error || errorData.message || "Error validating payment")
@@ -601,7 +672,6 @@ const PendingPayments: React.FC<PendingPaymentsProps> = () => {
             variant: "destructive",
           })
           await fetchPayments()
-          // Stats will update automatically via SSE
         } else {
           const errorData = await response.json()
           throw new Error(errorData.error || errorData.message || "Error rejecting payment")
@@ -632,11 +702,11 @@ const PendingPayments: React.FC<PendingPaymentsProps> = () => {
       const now = new Date()
       const diffMinutes = (exitTime.getTime() - now.getTime()) / (1000 * 60)
 
-      if (diffMinutes < 0) return 4 // Critical - time has passed
-      if (diffMinutes < 15) return 3 // Very urgent
-      if (diffMinutes < 30) return 2 // Urgent
-      if (diffMinutes < 60) return 1 // Moderate
-      return 0 // Normal
+      if (diffMinutes < 0) return 4
+      if (diffMinutes < 15) return 3
+      if (diffMinutes < 30) return 2
+      if (diffMinutes < 60) return 1
+      return 0
     }
 
     return getUrgencyScore(b) - getUrgencyScore(a)
