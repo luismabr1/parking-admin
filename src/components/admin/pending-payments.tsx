@@ -361,7 +361,7 @@ const PendingPaymentCard: React.FC<{
                   </Button>
                 </div>
               )}
-              {payment.urlImagenTickets && (
+              {payment.isMultiplePayment && payment.urlImagenTickets && (
                 <div className="flex items-center gap-2">
                   <ImageIcon className="h-3 w-3" />
                   <span className="text-gray-600">Tickets:</span>

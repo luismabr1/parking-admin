@@ -40,8 +40,9 @@ export async function GET() {
         tiempoSalidaEstimado: 1,
         carInfo: 1,
         urlImagenComprobante: 1,
-        isMultiplePayment: 1, // Added to include multiple payment flag
-        ticketQuantity: 1, // Added to include number of tickets
+        urlImagenTickets: 1, // Nuevo campo para la imagen de tickets múltiples
+        isMultiplePayment: 1, // Included multiple payment flag
+        ticketQuantity: 1, // Included number of tickets
       })
       .toArray()
 
@@ -50,6 +51,7 @@ export async function GET() {
     // Debug: verificar comprobantes y campos de pago múltiple
     pendingPayments.forEach((payment) => {
       console.log(`🔍 Pago ${payment.codigoTicket} - Comprobante: ${payment.urlImagenComprobante ? "SÍ" : "NO"}`)
+      console.log(`🔍 Pago ${payment.codigoTicket} - Tickets: ${payment.urlImagenTickets ? "SÍ" : "NO"}`) // Nuevo log para tickets
       console.log(`📋 Datos del pago:`, {
         codigoTicket: payment.codigoTicket,
         tipoPago: payment.tipoPago,
