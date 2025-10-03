@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
-import { sendNotificationToTicket } from "@/lib/push-notifications"
+/* import { sendNotificationToTicket } from "@/lib/push-notifications" */
 
 export async function POST(request: NextRequest) {
   try {
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       console.log("   Monto:", pago.montoPagado, "Bs")
       console.log("   Placa:", car?.placa || "N/A")
 
-      const notificationResult = await sendNotificationToTicket(pago.codigoTicket, {
+/*       const notificationResult = await sendNotificationToTicket(pago.codigoTicket, {
         title: "✅ Pago Validado",
         body: `Tu pago de ${pago.montoPagado} Bs ha sido validado. Vehículo: ${car?.placa || "N/A"}`,
         icon: "/icon-192x192.png",
@@ -183,11 +183,11 @@ export async function POST(request: NextRequest) {
         sent: notificationResult.sent,
         total: notificationResult.total,
         errors: notificationResult.errors.length,
-      })
+      })*/
     } catch (notificationError) {
       console.error("❌ [VALIDATE-PAYMENT] Error sending notification:", notificationError)
       // Log but don't fail the payment validation
-    }
+    } 
 
     // Trigger stats update event
     if (typeof window !== "undefined") {

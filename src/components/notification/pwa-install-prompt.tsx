@@ -143,51 +143,52 @@ export default function PWAInstallPrompt() {
 
   console.log("PWAInstallPrompt: Rendering banner. isIOS:", isIOS, "deferredPrompt:", !!deferredPrompt)
   return (
-    <div
-      className={`fixed bottom-0 left-0 right-0 z-50 border-t border-border shadow-lg ${
-        isIOS ? "backdrop-blur-md bg-background/80" : "bg-background"
-      }`}
-    >
-      <div className="max-w-md mx-auto p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-            <Smartphone className="h-5 w-5 text-muted-foreground" />
-          </div>
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border shadow-lg backdrop-blur-md bg-background/90">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-muted rounded-lg flex items-center justify-center">
+              <Smartphone className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+            </div>
 
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground">{isIOS ? "Agregar a Inicio" : "Instalar App"}</p>
-            <p className="text-xs text-muted-foreground truncate">
-              {isIOS ? "Toca Compartir → Agregar a pantalla de inicio" : "Acceso rápido y notificaciones"}
-            </p>
-          </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-foreground">
+                {isIOS ? "Agregar a Inicio" : "Instalar App"}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {isIOS ? "Toca Compartir → Agregar a pantalla de inicio" : "Acceso rápido y notificaciones"}
+              </p>
+            </div>
 
-          <div className="flex items-center gap-2">
-            {/* Mostrar botón de instalar SOLO en Android */}
-            {!isIOS && (
-              <Button
-                onClick={handleInstallClick}
-                size="sm"
-                className="text-xs px-3 bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                <Download className="h-3 w-3 mr-1" />
-                Instalar
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* Mostrar botón de instalar SOLO en Android */}
+              {!isIOS && (
+                <Button
+                  onClick={handleInstallClick}
+                  size="sm"
+                  className="text-xs px-2 sm:px-3 py-1 sm:py-2 h-auto bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  <span className="hidden sm:inline">Instalar</span>
+                  <span className="sm:hidden">App</span>
+                </Button>
+              )}
+
+              <Button onClick={handleDismiss} variant="ghost" size="sm" className="p-1 h-auto w-auto">
+                <X className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
-            )}
-
-            <Button onClick={handleDismiss} variant="ghost" size="sm" className="p-1 h-8 w-8">
-              <X className="h-4 w-4" />
-            </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Botón discreto para no mostrar más */}
-        <div className="mt-2 text-center">
-          <button
-            onClick={handleDismissPermanently}
-            className="text-xs text-muted-foreground hover:text-foreground underline"
-          >
-            No mostrar más
-          </button>
+          {/* Botón discreto para no mostrar más */}
+          <div className="mt-2 text-center">
+            <button
+              onClick={handleDismissPermanently}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              No mostrar más
+            </button>
+          </div>
         </div>
       </div>
     </div>

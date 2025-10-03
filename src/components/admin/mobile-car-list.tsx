@@ -147,10 +147,8 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
     setMessageType("")
 
     try {
-      // Preparar datos para enviar
       const updateData: any = { ...editForm }
 
-      // Subir imágenes si hay nuevas capturas
       if (capturedImages.plate) {
         const plateUrl = await uploadToCloudinary(capturedImages.plate, "plate")
         if (plateUrl) {
@@ -299,10 +297,9 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
         ) : (
           cars.map((car) => (
             <Card key={car._id} className={`w-full ${editingId === car._id ? "ring-2 ring-blue-500" : ""}`}>
-              <CardContent className="p-4 w-full">
+              <CardContent className="p-4 w-full overflow-hidden">
                 {editingId === car._id ? (
-                  // Modo edición
-                  <div className="space-y-3 w-full">
+                  <div className="space-y-3 w-full overflow-hidden">
                     <div className="flex items-center justify-between mb-2 w-full">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <Car className="h-4 w-4 flex-shrink-0" />
@@ -317,7 +314,6 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                       <div className="flex-shrink-0">{getStatusBadge(car.estado)}</div>
                     </div>
 
-                    {/* Campo Nota - Primero */}
                     <div className="w-full">
                       <Label className="text-xs text-muted-foreground">Nota del Parquero</Label>
                       <Input
@@ -370,11 +366,9 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                       disabled={isFormDisabled}
                     />
 
-                    {/* Sección de imágenes */}
-                    <div className="space-y-3 pt-2 border-t w-full">
+                    <div className="space-y-3 pt-2 border-t w-full overflow-hidden">
                       <Label className="text-sm font-medium">Imágenes</Label>
 
-                      {/* Imágenes existentes */}
                       {(car.imagenes?.plateImageUrl || car.imagenes?.vehicleImageUrl) && (
                         <div className="grid grid-cols-2 gap-2 w-full">
                           {car.imagenes?.plateImageUrl && (
@@ -383,7 +377,7 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                               <ImageWithFallback
                                 src={car.imagenes.plateImageUrl || "/placeholder.svg"}
                                 alt="Placa actual"
-                                className="w-full h-20 object-cover rounded border"
+                                className="w-full h-20 object-cover rounded border max-w-full"
                                 fallback="/placeholder.svg"
                               />
                             </div>
@@ -394,7 +388,7 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                               <ImageWithFallback
                                 src={car.imagenes.vehicleImageUrl || "/placeholder.svg"}
                                 alt="Vehículo actual"
-                                className="w-full h-20 object-cover rounded border"
+                                className="w-full h-20 object-cover rounded border max-w-full"
                                 fallback="/placeholder.svg"
                               />
                             </div>
@@ -402,7 +396,6 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                         </div>
                       )}
 
-                      {/* Nuevas imágenes capturadas */}
                       {(capturedImages.plate || capturedImages.vehicle) && (
                         <div className="grid grid-cols-2 gap-2 w-full">
                           {capturedImages.plate && (
@@ -411,7 +404,7 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                               <ImageWithFallback
                                 src={capturedImages.plate || "/placeholder.svg"}
                                 alt="Nueva placa"
-                                className="w-full h-20 object-cover rounded border border-green-500"
+                                className="w-full h-20 object-cover rounded border border-green-500 max-w-full"
                                 fallback="/placeholder.svg"
                               />
                             </div>
@@ -422,7 +415,7 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                               <ImageWithFallback
                                 src={capturedImages.vehicle || "/placeholder.svg"}
                                 alt="Nuevo vehículo"
-                                className="w-full h-20 object-cover rounded border border-green-500"
+                                className="w-full h-20 object-cover rounded border border-green-500 max-w-full"
                                 fallback="/placeholder.svg"
                               />
                             </div>
@@ -430,7 +423,6 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                         </div>
                       )}
 
-                      {/* Botones para subir imágenes */}
                       <div className="grid grid-cols-2 gap-2 w-full">
                         <div className="min-w-0">
                           <input
@@ -509,8 +501,7 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                     </div>
                   </div>
                 ) : (
-                  // Modo visualización
-                  <div className="w-full">
+                  <div className="w-full overflow-hidden">
                     <div onClick={() => handleEditClick(car)} className="cursor-pointer w-full">
                       <div className="flex items-center justify-between mb-2 w-full">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -540,15 +531,14 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                         </div>
                         <p className="break-words">Ticket: {car.ticketAsociado}</p>
 
-                        {/* Vista previa de imágenes en la lista */}
                         {(car.imagenes?.plateImageUrl || car.imagenes?.vehicleImageUrl) && (
-                          <div className="flex gap-2 mt-2 pt-2 border-t w-full">
+                          <div className="flex gap-2 mt-2 pt-2 border-t w-full overflow-hidden">
                             {car.imagenes?.plateImageUrl && (
                               <div className="flex-1 min-w-0">
                                 <ImageWithFallback
                                   src={car.imagenes.plateImageUrl || "/placeholder.svg"}
                                   alt="Placa"
-                                  className="w-full h-16 object-cover rounded border"
+                                  className="w-full h-16 object-cover rounded border max-w-full"
                                   fallback="/placeholder.svg"
                                 />
                                 <p className="text-xs text-center mt-1 text-gray-500">Placa</p>
@@ -559,7 +549,7 @@ const MobileCarList: React.FC<MobileCarListProps> = ({ cars, onRefresh, onViewIm
                                 <ImageWithFallback
                                   src={car.imagenes.vehicleImageUrl || "/placeholder.svg"}
                                   alt="Vehículo"
-                                  className="w-full h-16 object-cover rounded border"
+                                  className="w-full h-16 object-cover rounded border max-w-full"
                                   fallback="/placeholder.svg"
                                 />
                                 <p className="text-xs text-center mt-1 text-gray-500">Vehículo</p>

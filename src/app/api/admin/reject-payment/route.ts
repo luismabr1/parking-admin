@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
-import { sendNotificationToTicket } from "@/lib/push-notifications"
+/* import { sendNotificationToTicket } from "@/lib/push-notifications" */
 
 export const dynamic = "force-dynamic"
 export const fetchCache = "force-no-store"
@@ -295,7 +295,7 @@ export async function PUT(request: Request) {
       console.warn("⚠️ No se encontró carro asociado al ticket:", payment.codigoTicket)
     }
 
-    try {
+/*     try {
       console.log("🔔 [REJECT-PAYMENT] Enviando notificación al cliente...")
 
       const notificationResult = await sendNotificationToTicket(payment.codigoTicket, {
@@ -324,7 +324,7 @@ export async function PUT(request: Request) {
     } catch (notificationError) {
       console.error("❌ [REJECT-PAYMENT] Error sending notification:", notificationError)
       // Log but don't fail the payment rejection
-    }
+    } */
 
     const processingTime = Date.now() - startTime
 

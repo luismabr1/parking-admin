@@ -193,8 +193,8 @@ function AdminDashboard() {
 
   if (isMobile) {
     return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
+      <div className="space-y-4 overflow-auto ">
+        <div className="flex justify-between items-center sticky top-0">
           <div>
             <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
               {userRole === "operador" ? "Panel Operador" : "Panel Admin"}

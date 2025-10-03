@@ -15,7 +15,7 @@ interface ClientLayoutProps {
 export function ClientLayout({ children }: ClientLayoutProps) {
   const [isClient, setIsClient] = useState(false)
 
-  useEffect(() => {
+   useEffect(() => {
     setIsClient(true)
 
     // Register service worker for PWA and push notifications
@@ -42,7 +42,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         })
     }
   }, [])
-
+ 
   if (!isClient) {
     return null
   }

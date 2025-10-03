@@ -177,54 +177,60 @@ export default function UpdatePrompt() {
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-lg">
-      <div className="max-w-md mx-auto p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-            <RefreshCw className="h-5 w-5 text-muted-foreground" />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground">Nueva versión disponible</p>
-            <p className="text-xs text-muted-foreground truncate">Actualiza para obtener las últimas mejoras</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleUpdate}
-              disabled={isUpdating}
-              size="sm"
-              className="text-xs px-3 bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {isUpdating ? (
-                <>
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                  Actualizando...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  Actualizar
-                </>
-              )}
-            </Button>
-
-            <Button onClick={handleDismiss} variant="ghost" size="sm" className="p-1 h-8 w-8">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {isUpdating && (
-          <div className="mt-2">
-            <div className="w-full bg-muted rounded-full h-1">
-              <div className="bg-primary h-1 rounded-full animate-pulse" style={{ width: "60%" }}></div>
+    <div className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-background/90 border-b border-border shadow-lg">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-muted rounded-lg flex items-center justify-center">
+              <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1 text-center">
-              Limpiando cache y aplicando actualizaciones...
-            </p>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-foreground">Nueva versión disponible</p>
+              <p className="text-xs text-muted-foreground truncate hidden sm:block">
+                Actualiza para obtener las últimas mejoras
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                onClick={handleUpdate}
+                disabled={isUpdating}
+                size="sm"
+                className="text-xs px-2 sm:px-3 py-1 sm:py-2 h-auto bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {isUpdating ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    <span className="hidden sm:inline">Actualizando...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    <span>Actualizar</span>
+                  </>
+                )}
+              </Button>
+
+              <Button onClick={handleDismiss} variant="ghost" size="sm" className="p-1 h-auto w-auto">
+                <X className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+            </div>
           </div>
-        )}
+
+          {isUpdating && (
+            <div className="mt-2 sm:mt-3">
+              <div className="w-full bg-muted rounded-full h-1 sm:h-2">
+                <div className="bg-primary h-1 sm:h-2 rounded-full animate-pulse" style={{ width: "60%" }}></div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 text-center">
+                <span className="hidden sm:inline">Limpiando cache y aplicando actualizaciones...</span>
+                <span className="sm:hidden">Actualizando...</span>
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
